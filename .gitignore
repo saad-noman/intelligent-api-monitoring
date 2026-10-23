@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment files (examples stay tracked)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Local artifacts
+.vercel/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
