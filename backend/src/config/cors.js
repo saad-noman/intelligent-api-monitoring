@@ -1,10 +1,10 @@
 // CORS policy: only the explicitly configured frontend origins are allowed, with no
-// wildcard fallback. Credential handling (cookies vs. bearer tokens) is intentionally
-// left undecided until the authentication strategy is chosen.
+// wildcard fallback. Authentication uses bearer tokens in the Authorization header,
+// so cookies (and `credentials: true`) are not needed.
 export function createCorsOptions({ frontendOrigins }) {
   return {
     origin: [...frontendOrigins],
     methods: ['GET', 'POST', 'PATCH'],
-    // TODO: Set `credentials: true` only if cookie-based authentication is adopted.
+    allowedHeaders: ['Content-Type', 'Authorization'],
   };
 }

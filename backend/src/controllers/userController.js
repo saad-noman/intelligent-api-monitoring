@@ -1,9 +1,11 @@
 // Thin HTTP handlers for account settings. Preference storage belongs in services/userService.js.
-import { NotImplementedError } from '../utils/errors.js';
+import * as userService from '../services/userService.js';
+import { parseEmail } from '../utils/validation.js';
 
 // PATCH /users/me/alert-email (requireAuth)
-export function updateAlertEmail(req, res) {
-  // TODO: Validate the alert-recipient email and delegate to userService.updateAlertEmail(req.user.id, ...).
-  // This address is independent of the account's registration/login email.
-  throw new NotImplementedError('PATCH /users/me/alert-email');
+// This address is independent of the account's registration/login email.
+export async function updateAlertEmail(req, res) {
+  const alertEmail = parseEmail(req.body?.alertEmail, 'Alert email');
+  const account = await userService.updateAlertEmail(req.user.id, alertEmail);
+  res.json({ account });
 }

@@ -53,7 +53,7 @@ export default function AnalysisPanel({ items, isLoading }) {
       <div className="analysis-box">
         {/* <span className="eyebrow">AI analysis</span> */}
         <h2>
-          Structured <span className="accent">Insights</span>
+          Structured Insights
         </h2>
         {content}
         {anomalous.length > 0 && (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import FormField from './FormField.jsx';
 import StatusMessage from './StatusMessage.jsx';
+import { toFriendlyMessage } from '../utils/errorMessages.js';
 
 // Shared email + password form used by the login and registration pages.
 export default function AuthForm({ submitLabel, onSubmit, notice, footer }) {
@@ -16,7 +17,7 @@ export default function AuthForm({ submitLabel, onSubmit, notice, footer }) {
     try {
       await onSubmit({ email, password });
     } catch (err) {
-      setError(err.message);
+      setError(toFriendlyMessage(err));
     } finally {
       setIsSubmitting(false);
     }

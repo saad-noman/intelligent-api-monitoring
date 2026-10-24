@@ -1,10 +1,10 @@
+// Rejects requests without a valid session token. On success, req.user is the verified
+// identity ({ id }) resolved from server-side session data, never from client-supplied IDs.
+import { resolveRequestIdentity } from '../services/authService.js';
 import { AppError } from '../utils/errors.js';
 
-// Guards endpoints that expose or modify user-owned data (history, alerts, settings).
-// Authorization is enforced here on the backend; frontend route guards are only UX.
-export function requireAuth(req, res, next) {
-  // TODO: Verify request credentials via authService and attach the verified identity to req.user.
-  // Until verification exists, no request is ever treated as authenticated (fail closed).
+export async function requireAuth(req, res, next) {
+  req.user = await resolveRequestIdentity(req);
   if (!req.user) {
     return next(new AppError(401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.'));
   }

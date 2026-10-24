@@ -5,6 +5,7 @@ import StatusMessage from '../components/StatusMessage.jsx';
 import { updateAlertEmail } from '../services/userService.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { NOT_AVAILABLE } from '../utils/format.js';
+import { toFriendlyMessage } from '../utils/errorMessages.js';
 
 // Account settings, including the alert-recipient email, which is separate
 // from the account's login email.
@@ -23,7 +24,7 @@ export default function ProfileSettingsPage() {
       await refresh();
       setResult({ ok: true, message: 'Your report email address was saved.' });
     } catch (err) {
-      setResult({ ok: false, message: err.message });
+      setResult({ ok: false, message: toFriendlyMessage(err) });
     } finally {
       setIsSaving(false);
     }
@@ -31,8 +32,8 @@ export default function ProfileSettingsPage() {
 
   return (
     <section className="narrow stack">
-      <PageHeader eyebrow="Account settings" title="Email" highlight="Reporting">
-        Anomaly reports are sent to the address saved here until you change it.
+      <PageHeader title="Account Settings">
+        Set the email address where you want to receive anomaly reports. This can differ from the email you log in with.
       </PageHeader>
 
       <form className="card form-card" onSubmit={handleSubmit}>

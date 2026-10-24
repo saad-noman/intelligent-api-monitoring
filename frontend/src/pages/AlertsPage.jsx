@@ -3,6 +3,7 @@ import AlertList from '../components/AlertList.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import StatusMessage from '../components/StatusMessage.jsx';
 import { getActiveAlerts } from '../services/alertsService.js';
+import { isNoDataError, toFriendlyMessage } from '../utils/errorMessages.js';
 
 // Display of the authenticated user's active anomalies from GET /alerts.
 export default function AlertsPage() {
@@ -16,7 +17,9 @@ export default function AlertsPage() {
     try {
       setAlerts(await getActiveAlerts());
     } catch (err) {
-      setError(err.message);
+      // A missing or not-yet-available alert source just means there is nothing to show.
+      if (isNoDataError(err)) setAlerts([]);
+      else setError(toFriendlyMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +42,7 @@ export default function AlertsPage() {
         </StatusMessage>
       )}
       {!isLoading && !error && alerts.length === 0 && (
-        <StatusMessage title="No active anomalies found">No active anomalies were returned for your account.</StatusMessage>
+        <StatusMessage title="No data yet">No active anomalies found for your account.</StatusMessage>
       )}
       {!isLoading && !error && alerts.length > 0 && <AlertList alerts={alerts} />}
     </section>

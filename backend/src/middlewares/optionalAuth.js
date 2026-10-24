@@ -6,8 +6,11 @@
 //   req.user === null          -> guest; results must not be persisted.
 //   req.user === { id, ... }   -> authenticated; identity comes only from verified
 //                                 server-side credentials, never from client-supplied IDs.
-export function optionalAuth(req, res, next) {
-  // TODO: Verify request credentials via authService once the authentication strategy is chosen.
-  req.user = null;
+//
+// A missing, invalid, or expired token is treated as a guest.
+import { resolveRequestIdentity } from '../services/authService.js';
+
+export async function optionalAuth(req, res, next) {
+  req.user = await resolveRequestIdentity(req);
   next();
 }

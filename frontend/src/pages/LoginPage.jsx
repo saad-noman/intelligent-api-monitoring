@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   return (
     <section className="narrow stack">
-      <PageHeader title="Log" highlight="in" />
+      <PageHeader title="Log in" />
       <AuthForm
         submitLabel="Log in →"
         onSubmit={handleLogin}

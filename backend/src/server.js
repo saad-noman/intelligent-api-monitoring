@@ -1,4 +1,5 @@
 // Process entry point: validates configuration, connects to MongoDB, and starts HTTP.
+import dns from 'node:dns';
 import { loadConfig } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { createApp } from './app.js';
@@ -6,6 +7,7 @@ import { logger } from './utils/logger.js';
 
 async function start() {
   const config = loadConfig();
+  if (config.dnsServers.length > 0) dns.setServers(config.dnsServers);
   await connectDatabase(config.mongodbUri);
 
   const app = createApp(config);

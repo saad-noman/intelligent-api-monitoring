@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 const ENV_FILE = fileURLToPath(new URL('../../.env', import.meta.url));
 const NODE_ENVS = ['development', 'test', 'production'];
 const DEV_DEFAULT_ORIGINS = ['http://localhost:5173'];
+const DEFAULT_SESSION_TTL_HOURS = 168; // 7 days
+
+// Set by loadConfig() so other modules can read the validated configuration via getConfig().
+let loadedConfig = null;
 
 export class ConfigError extends Error {
   constructor(message) {
@@ -20,6 +24,23 @@ function parsePort(value) {
     throw new ConfigError('PORT must be an integer between 1 and 65535.');
   }
   return port;
+}
+
+function parseSessionTtlHours(value) {
+  const hours = Number(value ?? DEFAULT_SESSION_TTL_HOURS);
+  if (!Number.isInteger(hours) || hours < 1) {
+    throw new ConfigError('SESSION_TTL_HOURS must be a positive integer.');
+  }
+  return hours;
+}
+
+// Optional comma-separated DNS servers for Node's resolver (e.g. when the system's
+// default DNS cannot resolve the SRV records used by mongodb+srv:// URIs).
+function parseDnsServers(value) {
+  return (value ?? '')
+    .split(',')
+    .map((server) => server.trim())
+    .filter(Boolean);
 }
 
 // Origins must be exact (scheme://host[:port]); wildcards are rejected in every environment.
@@ -64,11 +85,19 @@ export function loadConfig() {
   const mongodbUri = process.env.MONGODB_URI?.trim();
   if (!mongodbUri) throw new ConfigError('MONGODB_URI is required.');
 
-  return Object.freeze({
+  loadedConfig = Object.freeze({
     nodeEnv,
     isProduction,
     port: parsePort(process.env.PORT),
     mongodbUri,
     frontendOrigins: Object.freeze(parseOrigins(process.env.FRONTEND_ORIGINS, isProduction)),
+    sessionTtlHours: parseSessionTtlHours(process.env.SESSION_TTL_HOURS),
+    dnsServers: Object.freeze(parseDnsServers(process.env.DNS_SERVERS)),
   });
+  return loadedConfig;
+}
+
+export function getConfig() {
+  if (!loadedConfig) throw new ConfigError('Configuration has not been loaded yet.');
+  return loadedConfig;
 }

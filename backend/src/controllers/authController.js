@@ -1,27 +1,38 @@
-// Thin HTTP handlers for account access. Credential handling, session/token logic, and
-// account persistence belong in services/authService.js, not here.
-import { NotImplementedError } from '../utils/errors.js';
+// Thin HTTP handlers for account access. Credential handling, session logic, and
+// account persistence live in services/authService.js.
+import * as authService from '../services/authService.js';
+import { getAccount } from '../services/userService.js';
+import { parseEmail, parsePassword, parseNewPassword } from '../utils/validation.js';
 
 // POST /auth/register
-export function register(req, res) {
-  // TODO: Validate input and delegate account creation to authService.
-  throw new NotImplementedError('POST /auth/register');
+export async function register(req, res) {
+  const { email, password } = req.body ?? {};
+  const account = await authService.registerAccount({
+    email: parseEmail(email),
+    password: parseNewPassword(password),
+  });
+  res.status(201).json({ account });
 }
 
 // POST /auth/login
-export function login(req, res) {
-  // TODO: Validate input and delegate credential verification to authService.
-  throw new NotImplementedError('POST /auth/login');
+export async function login(req, res) {
+  const { email, password } = req.body ?? {};
+  const account = await authService.verifyCredentials({
+    email: parseEmail(email),
+    password: parsePassword(password),
+  });
+  const { token, expiresAt } = await authService.startSession(account.id);
+  res.json({ token, expiresAt, account });
 }
 
 // POST /auth/logout
-export function logout(req, res) {
-  // TODO: Delegate session/credential invalidation to authService.
-  throw new NotImplementedError('POST /auth/logout');
+export async function logout(req, res) {
+  await authService.endSession(req);
+  res.status(204).end();
 }
 
 // GET /auth/me (requireAuth)
-export function getCurrentAccount(req, res) {
-  // TODO: Return the account for req.user.id, including its separate alert-recipient email.
-  throw new NotImplementedError('GET /auth/me');
+export async function getCurrentAccount(req, res) {
+  const account = await getAccount(req.user.id);
+  res.json({ account });
 }

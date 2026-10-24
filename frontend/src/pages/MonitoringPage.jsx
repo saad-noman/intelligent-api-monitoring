@@ -4,7 +4,9 @@ import MonitoringInput from '../components/MonitoringInput.jsx';
 import MonitoringResults from '../components/MonitoringResults.jsx';
 import AnalysisPanel from '../components/AnalysisPanel.jsx';
 import StatusMessage from '../components/StatusMessage.jsx';
+import GuestNotice from '../components/GuestNotice.jsx';
 import { submitMonitoring } from '../services/monitorService.js';
+import { toFriendlyMessage } from '../utils/errorMessages.js';
 import { AUTH_STATUS, useAuth } from '../context/AuthContext.jsx';
 
 // Entry point for monitoring, available to guests and authenticated users.
@@ -22,7 +24,7 @@ export default function MonitoringPage() {
       setResults(await submitMonitoring(apiResponses));
     } catch (err) {
       setResults(null);
-      setError(err.message);
+      setError(toFriendlyMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -38,15 +40,13 @@ export default function MonitoringPage() {
         <AnalysisPanel items={results} isLoading={isSubmitting} />
 
         <div className="stack monitor-workspace">
-          {status === AUTH_STATUS.guest && (
-            <StatusMessage title="You are not signed in">Results are shown for this session only and are not saved. To save data, you must register with an account and login.</StatusMessage>
-          )}
+          {status === AUTH_STATUS.guest && <GuestNotice />}
 
           <MonitoringInput onSubmit={handleSubmit} isSubmitting={isSubmitting} />
 
           {isSubmitting && <StatusMessage variant="loading" title="Evaluating API responses…" />}
           {error && (
-            <StatusMessage variant="error" title="Monitoring submission failed">
+            <StatusMessage variant="error" title="We couldn't analyze your data">
               {error}
             </StatusMessage>
           )}
