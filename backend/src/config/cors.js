@@ -4,7 +4,7 @@
 export function createCorsOptions({ frontendOrigins }) {
   return {
     origin: [...frontendOrigins],
-    methods: ['GET', 'POST', 'PATCH'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   };
 }

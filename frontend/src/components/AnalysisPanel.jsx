@@ -1,23 +1,42 @@
+import ViewButton from './ViewButton.jsx';
 import AnomalyTags from './AnomalyTags.jsx';
 import FormattedText from './FormattedText.jsx';
 import StatusMessage from './StatusMessage.jsx';
-import { isAnomalous, METRIC_FIELDS } from '../utils/monitoringData.js';
+import EvidenceList from './EvidenceList.jsx';
+import AlertId from './AlertId.jsx';
+import AiAnalysis from './AiAnalysis.jsx';
+import { ALERT_SOURCE_LABELS, isAnomalous, METRIC_FIELDS } from '../utils/monitoringData.js';
 import { NOT_AVAILABLE } from '../utils/format.js';
 
-function AnalysisEntry({ item }) {
+// `canView`: the alert was saved, so its detail page exists.
+function AnalysisEntry({ item, canView }) {
   return (
     <article className="analysis-entry">
       <header className="analysis-entry-header">
-        <h3>{item.apiName ?? NOT_AVAILABLE}</h3>
+        <div>
+          <h3>{item.apiName ?? NOT_AVAILABLE}</h3>
+          <AlertId value={item.alertId} fallback="No alert ID" />
+        </div>
         <AnomalyTags anomalies={item.anomalies} />
       </header>
 
+      <span className="section-label">{ALERT_SOURCE_LABELS[item.alertSource] ?? 'Alert'}</span>
       {item.explanation ? (
         <FormattedText text={item.explanation} />
       ) : (
         <p className="muted">
-          <em>An AI explanation is not available for this anomaly.</em>
+          <em>An alert message is not available for this anomaly.</em>
         </p>
+      )}
+
+      <AiAnalysis analysis={item.analysis} model={item.aiModel} />
+
+      <EvidenceList findings={item.findings} />
+
+      {canView && item.alertId && (
+        <div className="analysis-view-link">
+          <ViewButton alertId={item.alertId} />
+        </div>
       )}
 
       <p className="analysis-facts">
@@ -34,18 +53,19 @@ function AnalysisEntry({ item }) {
 }
 
 // Left side of the monitoring page: AI-generated analysis of anomalous responses.
-export default function AnalysisPanel({ items, isLoading }) {
+// `canView` is true only when the results were saved (guest results have no detail page).
+export default function AnalysisPanel({ items, isLoading, canView = false }) {
   const anomalous = items?.filter(isAnomalous) ?? [];
 
   let content;
   if (isLoading) {
     content = <StatusMessage variant="loading" title="Generating analysis…" />;
   } else if (!items) {
-    content = <p className="muted">Submit API response data to see the AI-generated analysis here.</p>;
+    content = <p className="muted">Submit API response data to see the generated alerts here.</p>;
   } else if (anomalous.length === 0) {
-    content = <p className="muted">No anomalies were detected in the submitted responses, so no analysis was generated.</p>;
+    content = <p className="muted">No anomalies were detected in the submitted responses, so no alert was generated.</p>;
   } else {
-    content = anomalous.map((item, index) => <AnalysisEntry key={`${item.apiName}-${index}`} item={item} />);
+    content = anomalous.map((item, index) => <AnalysisEntry key={item.alertId ?? index} item={item} canView={canView} />);
   }
 
   return (
@@ -58,7 +78,7 @@ export default function AnalysisPanel({ items, isLoading }) {
         {content}
         {anomalous.length > 0 && (
           <p className="analysis-note">
-            <em>Possible causes are AI suggestions, not confirmed findings.</em>
+            <em>Possible causes are suggestions, not confirmed findings.</em>
           </p>
         )}
       </div>

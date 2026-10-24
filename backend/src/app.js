@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import monitorRoutes from './routes/monitorRoutes.js';
 import alertsRoutes from './routes/alertsRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
 
 export function createApp(config) {
   const app = express();
@@ -23,6 +24,7 @@ export function createApp(config) {
   app.use('/users', userRoutes);
   app.use('/monitor', monitorRoutes);
   app.use('/alerts', alertsRoutes);
+  app.use('/activity', activityRoutes);
 
   app.use(notFound);
   app.use(createErrorHandler(config));

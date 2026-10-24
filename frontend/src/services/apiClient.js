@@ -7,11 +7,13 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\
 // Error carrying the HTTP status and backend error code so callers can react to them.
 // `message` stays technical for debugging; the UI shows utils/errorMessages.js instead.
 export class ApiError extends Error {
-  constructor(message, status, code) {
+  constructor(message, status, code, details) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    // Optional item-level problems, e.g. POST /monitor validation errors.
+    this.details = details;
   }
 }
 
@@ -48,7 +50,7 @@ export async function apiRequest(path, { method = 'GET', body } = {}) {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = data?.error?.message ?? `Request failed with status ${response.status}.`;
-    throw new ApiError(message, response.status, data?.error?.code);
+    throw new ApiError(message, response.status, data?.error?.code, data?.error?.details);
   }
   return data;
 }

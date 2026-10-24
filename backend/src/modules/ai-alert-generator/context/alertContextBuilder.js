@@ -1,8 +1,10 @@
-// Organizes the supplied API input (api_name, response_time_ms, status_code,
-// records_returned) and the detected anomaly into the context given to the LLM.
-// Only explicitly supplied data is included.
-import { NotImplementedError } from '../../../utils/errors.js';
-
-export function buildAlertContext({ apiResponse, anomaly }) {
-  throw new NotImplementedError('ai-alert-generator.buildAlertContext');
+// Builds the minimal context given to the LLM: the API name, its observed metrics, and
+// the rule findings (type, rule, observed values, threshold). Response bodies and any
+// other submitted data are deliberately excluded so no patient data can reach the provider.
+export function buildAlertContext({ apiName, metrics, findings }) {
+  return {
+    api_name: apiName,
+    metrics: metrics ?? {},
+    anomalies: findings.map(({ type, rule, observed, threshold }) => ({ type, rule, observed, threshold })),
+  };
 }

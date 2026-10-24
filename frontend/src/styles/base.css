@@ -26,6 +26,10 @@
   --on-dark: #ffffff;
   --radius: 20px;
   --radius-sm: 12px;
+  /* Action buttons: same height as .btn-sm (line height 1.25 + 0.45rem padding x2 + 1px border x2). */
+  --action-btn-width: 8rem;
+  --action-btn-font-size: 0.9rem;
+  --action-btn-height: calc(var(--action-btn-font-size) * 1.25 + 0.9rem + 2px);
   --shadow: 0 8px 24px rgba(30, 58, 110, 0.08);
   --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
 
@@ -79,6 +83,11 @@ main {
 .stack {
   display: grid;
   gap: 1.5rem;
+}
+
+/* Grid children may shrink below their content width, so wide content cannot overflow. */
+.stack > * {
+  min-width: 0;
 }
 
 .narrow {
@@ -217,8 +226,26 @@ main {
   border-radius: 999px;
   font: inherit;
   font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s;
+}
+
+/* Icons inside buttons keep their size. */
+.btn svg {
+  flex-shrink: 0;
+}
+
+/* Icon + label action buttons (View, Delete) share one fixed size on every card,
+   whether link or button and whatever the label (e.g. "Deleting…"). */
+.btn-action {
+  flex: 0 0 auto;
+  width: var(--action-btn-width);
+  height: var(--action-btn-height);
+  padding: 0 1rem;
+  font-size: var(--action-btn-font-size);
 }
 
 .btn:disabled {
@@ -274,6 +301,8 @@ main {
 .metric {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: 0.25rem;
   padding: 1rem 1.25rem;
   border-radius: var(--radius-sm);
@@ -365,9 +394,12 @@ main {
 }
 
 /* ---------- Response table ---------- */
+/* The card is a size container so the table adapts to the space it actually has
+   (e.g. the half-width monitoring column), not only to the screen width. */
 .table-card {
   padding: 0;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .response-table {
@@ -377,9 +409,49 @@ main {
 
 .response-table th,
 .response-table td {
-  padding: 0.9rem 1.25rem;
+  padding: 0.9rem 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+/* Narrow table: rows become stacked cards labeled by `data-label`. */
+@container (max-width: 760px) {
+  .response-table thead {
+    display: none;
+  }
+
+  .response-table tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .response-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .response-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 1rem;
+    border-bottom: none;
+    text-align: right;
+  }
+
+  .response-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .response-table .tags {
+    justify-content: flex-end;
+  }
 }
 
 .response-table th {
@@ -531,6 +603,8 @@ textarea:focus {
 
 .status-body {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-dismiss {
@@ -716,32 +790,6 @@ textarea:focus {
     padding: 1.1rem;
   }
 
-  /* Table rows become stacked cards labeled by `data-label`. */
-  .response-table thead {
-    display: none;
-  }
-
-  .response-table tr {
-    display: block;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .response-table td {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.5rem 1rem;
-    border-bottom: none;
-    text-align: right;
-  }
-
-  .response-table td::before {
-    content: attr(data-label);
-    color: var(--muted);
-    font-weight: 600;
-    text-align: left;
-  }
-
   .btn-primary {
     width: 100%;
   }
@@ -757,4 +805,404 @@ textarea:focus {
   background: var(--info-bg);
   color: var(--navy);
   font-weight: 700;
+}
+
+/* Row of action buttons (monitoring input, alerts page). */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Rule evidence for each detected anomaly. */
+.evidence-list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.evidence-list code {
+  background: var(--input-bg);
+  border-radius: 6px;
+  padding: 0 0.3rem;
+}
+
+/* Meta line above, action buttons below: the same layout on every card width. */
+.alert-card-footer {
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.item-error {
+  display: block;
+}
+
+/* Unique alert ID badge. */
+.alert-id {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  background: var(--info-bg);
+  color: var(--navy);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Alert search by ID (alerts page). */
+.alert-search {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.alert-search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.alert-search-row input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.alert-search-row input:focus {
+  outline: 2px solid var(--navy);
+  outline-offset: 1px;
+  background: var(--surface);
+}
+
+.alert-search-row .btn {
+  width: auto;
+}
+
+/* Destructive action (delete): red theme with a trash icon. */
+.btn-danger {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--on-dark);
+}
+
+.alert-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: center;
+}
+
+.analysis-view-link {
+  justify-self: start;
+}
+
+/* Alert detail page: alert card beside its action panel. */
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.alert-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.alert-actions .btn {
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Side-by-side form buttons (e.g. Save/Update email + Remove email), equal width. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.form-actions .btn {
+  flex: 1 1 10rem;
+  width: auto;
+}
+
+/* On/off switch (Account Settings → Email reporting). */
+.toggle-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.toggle-label {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 4.5rem;
+  height: 2.1rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--nav-bg);
+  color: var(--on-dark);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.toggle-on {
+  justify-content: flex-start;
+  background: var(--ok);
+}
+
+.toggle:not(.toggle-on) {
+  justify-content: flex-end;
+}
+
+.toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--surface);
+  transform: translateY(-50%);
+  transition: left 0.15s;
+}
+
+.toggle-on .toggle-thumb {
+  left: calc(100% - 1.8rem);
+}
+
+/* AI analysis block (alert cards and the monitoring analysis panel). */
+.ai-analysis {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+}
+
+.ai-analysis-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.analysis-text {
+  margin: 0;
+}
+
+.analysis-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+/* Severity badge; the level comes from the AI analysis. */
+.severity {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.severity-low {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.severity-medium {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.severity-high {
+  background: var(--alert-bg);
+  color: var(--alert);
+}
+
+.severity-critical {
+  background: var(--error);
+  color: var(--on-dark);
+}
+
+/* Info messages get a soft blue background like the other variants. */
+.status-info {
+  border-color: var(--border);
+  background: var(--info-bg);
+  color: var(--navy);
+}
+
+/* Action button that fits a longer label (e.g. "Clear history"). */
+.btn-action.btn-wide {
+  width: auto;
+}
+
+/* Solid red confirm button inside the confirmation dialog. */
+.btn-danger-solid {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--on-dark);
+}
+
+.btn-danger-solid:hover:not(:disabled) {
+  background: var(--alert);
+}
+
+/* ---------- Confirmation dialog ---------- */
+.confirm-dialog {
+  width: min(440px, calc(100% - 2rem));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--navy);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(22, 44, 84, 0.25);
+}
+
+.confirm-danger {
+  border-top-color: var(--error);
+}
+
+.confirm-warning {
+  border-top-color: var(--warning-border);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(22, 44, 84, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.confirm-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.confirm-text h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--navy);
+}
+
+.confirm-text p {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.confirm-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.confirm-actions .btn {
+  width: auto;
+  min-width: 6.5rem;
+}
+
+/* ---------- History page ---------- */
+.activity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 1.25rem;
+}
+
+.activity-item {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.activity-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.activity-message {
+  margin: 0;
+}
+
+.activity-badge {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.activity-resolved {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.activity-reopened {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.activity-emailed {
+  background: var(--info-bg);
+  color: var(--navy);
+}
+
+.activity-deleted {
+  background: var(--error-bg);
+  color: var(--error);
 }

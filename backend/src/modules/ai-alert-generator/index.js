@@ -4,4 +4,4 @@
 //
 // Callers (services, never controllers) pass all needed context explicitly. The module
 // does not access the database or HTTP request objects.
-export { generateAlertExplanation } from './agent/alertAgent.js';
+export { generateAlertExplanation, ALERT_SOURCES } from './agent/alertAgent.js';

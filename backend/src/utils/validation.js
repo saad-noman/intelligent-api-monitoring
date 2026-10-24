@@ -19,6 +19,11 @@ function requireString(value, label) {
   return value;
 }
 
+export function parseBoolean(value, label) {
+  if (typeof value !== 'boolean') throw validationError(`${label} must be true or false.`);
+  return value;
+}
+
 // Emails are trimmed and lower-cased so the same address always matches one account.
 export function parseEmail(value, label = 'Email') {
   const email = requireString(value, label).trim().toLowerCase();

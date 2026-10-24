@@ -9,6 +9,7 @@ export function toAccount(user) {
     id: user._id.toString(),
     email: user.email,
     alertEmail: user.alertEmail ?? null,
+    emailReportsEnabled: user.emailReportsEnabled !== false,
     createdAt: user.createdAt,
   };
 }
@@ -30,9 +31,28 @@ export async function getAlertEmail(userId) {
   return user.alertEmail ?? null;
 }
 
-export async function updateAlertEmail(userId, alertEmail) {
+// The recipient and on/off switch used before sending an anomaly report.
+export async function getEmailReportSettings(userId) {
   const user = await findUserOrThrow(userId);
-  user.alertEmail = alertEmail;
+  return { alertEmail: user.alertEmail ?? null, enabled: user.emailReportsEnabled !== false };
+}
+
+// Saves one or more account settings fields and returns the updated account.
+async function updateUserFields(userId, fields) {
+  const user = await findUserOrThrow(userId);
+  Object.assign(user, fields);
   await user.save();
   return toAccount(user);
+}
+
+export async function updateAlertEmail(userId, alertEmail) {
+  return updateUserFields(userId, { alertEmail });
+}
+
+export async function removeAlertEmail(userId) {
+  return updateUserFields(userId, { alertEmail: null });
+}
+
+export async function updateEmailReportsEnabled(userId, enabled) {
+  return updateUserFields(userId, { emailReportsEnabled: enabled });
 }

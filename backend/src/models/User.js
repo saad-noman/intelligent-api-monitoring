@@ -11,6 +11,8 @@ const userSchema = new Schema(
     // Excluded from queries by default; load explicitly with .select('+passwordHash').
     passwordHash: { type: String, required: true, select: false },
     alertEmail: { type: String, default: null, trim: true, lowercase: true },
+    // On/off switch for anomaly report emails, controlled from Account Settings.
+    emailReportsEnabled: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

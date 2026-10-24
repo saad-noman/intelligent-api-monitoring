@@ -1,16 +1,21 @@
 // Single place that maps backend payloads to the shape the UI renders.
-// The backend response schemas are not finalized; only the four response fields below
-// come from the specification. The PAYLOAD_KEYS are assumptions to confirm with the
-// backend and change here only.
+// Keys match the backend responses of POST /monitor and GET /alerts.
 import { formatMs, formatValue } from './format.js';
 
 export const PAYLOAD_KEYS = {
   monitorResults: 'results',
+  monitorErrors: 'errors',
   monitorRecords: 'records',
   alerts: 'alerts',
   anomalies: 'anomalies',
   anomalyType: 'type',
   explanation: 'explanation',
+};
+
+// How the alert text was produced (backend `alert_source`).
+export const ALERT_SOURCE_LABELS = {
+  llm: 'AI analysis',
+  fallback: 'Detection summary (AI unavailable)',
 };
 
 // API response fields from the specification. Every table, card, and input hint reads
@@ -34,14 +39,25 @@ export function readList(payload, key) {
 // Missing fields stay null so the UI can show "Not available" instead of a made-up value.
 export function toMonitoringItem(raw = {}) {
   const item = Object.fromEntries(RESPONSE_FIELDS.map(({ key, source }) => [key, raw[source] ?? null]));
-  const anomalies = Array.isArray(raw[PAYLOAD_KEYS.anomalies]) ? raw[PAYLOAD_KEYS.anomalies] : [];
+  const findings = Array.isArray(raw[PAYLOAD_KEYS.anomalies]) ? raw[PAYLOAD_KEYS.anomalies] : [];
   return {
     ...item,
+    id: raw.id ?? null,
+    // Unique issue ID (e.g. ALR-20261024-9F2C41AB); null for observations without an anomaly.
+    alertId: raw.alert_id ?? null,
     // Anomaly labels are whatever the backend detected; the frontend never derives them.
-    anomalies: anomalies
+    anomalies: findings
       .map((anomaly) => (typeof anomaly === 'string' ? anomaly : anomaly?.[PAYLOAD_KEYS.anomalyType]))
       .filter(Boolean),
+    // Full rule evidence: [{ type, rule, observed, threshold }].
+    findings: findings.filter((anomaly) => typeof anomaly === 'object' && anomaly !== null),
     explanation: raw[PAYLOAD_KEYS.explanation] ?? null,
+    alertSource: raw.alert_source ?? null,
+    // AI analysis { severity, impact, possible_causes, recommended_checks }, or null.
+    analysis: raw.analysis ?? null,
+    aiModel: raw.ai_model ?? null,
+    active: raw.active ?? null,
+    detectedAt: raw.detected_at ?? null,
   };
 }
 

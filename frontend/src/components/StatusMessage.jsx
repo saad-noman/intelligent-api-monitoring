@@ -1,6 +1,9 @@
-// Icons shown before the text for variants that need extra emphasis.
+// Icons shown before the text, one per variant (loading shows a spinner instead).
 const VARIANT_ICONS = {
+  info: 'ℹ️',
+  success: '✅',
   warning: '⚠️',
+  error: '❌',
 };
 
 // Shared loading / empty / error / success / warning feedback block.

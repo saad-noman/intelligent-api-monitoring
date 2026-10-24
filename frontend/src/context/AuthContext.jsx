@@ -11,12 +11,21 @@ export const AUTH_STATUS = {
 
 // The /auth/me payload shape is not finalized; these keys are assumptions to confirm
 // with the backend. The account may be returned directly or wrapped under `wrapper`.
-const ACCOUNT_KEYS = { wrapper: 'account', email: 'email', alertEmail: 'alertEmail' };
+const ACCOUNT_KEYS = {
+  wrapper: 'account',
+  email: 'email',
+  alertEmail: 'alertEmail',
+  emailReportsEnabled: 'emailReportsEnabled',
+};
 
 function toAccount(data) {
   const account = data?.[ACCOUNT_KEYS.wrapper] ?? data;
   if (!account) return null;
-  return { email: account[ACCOUNT_KEYS.email] ?? null, alertEmail: account[ACCOUNT_KEYS.alertEmail] ?? null };
+  return {
+    email: account[ACCOUNT_KEYS.email] ?? null,
+    alertEmail: account[ACCOUNT_KEYS.alertEmail] ?? null,
+    emailReportsEnabled: account[ACCOUNT_KEYS.emailReportsEnabled] !== false,
+  };
 }
 
 // Holds who is signed in. This is UX state only: the backend enforces authorization.
