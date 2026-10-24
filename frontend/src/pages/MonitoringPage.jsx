@@ -39,8 +39,7 @@ export default function MonitoringPage() {
   return (
     <section className="stack">
       <PageHeader title="Intelligent API" highlight="Monitor">
-        Submit API monitoring observations (JSON). Rule-based checks detect anomalies, and each anomaly gets a
-        human-readable alert.
+        Submit API monitoring observations (JSON). Get AI-assisted API response analysis report and recommendations for possible fixes of detected errors.
       </PageHeader>
 
       <div className="monitor-layout">
