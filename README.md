@@ -86,7 +86,6 @@ The model gets one tool, `search_references(query)`, and decides itself what to 
 
 | Source | Setting | Notes |
 | --- | --- | --- |
-| Stack Exchange API v2.3 (Stack Overflow, Server Fault, ...) | `STACKEXCHANGE_SITES` (default `stackoverflow,serverfault`), optional `STACKEXCHANGE_API_KEY` | No key needed; a key raises the daily quota. Only answered questions, with the accepted answer. |
 | Google results via [Serper](https://serper.dev) | `SERPER_API_KEY` | Off without a key. Google's own Custom Search JSON API is closed to new projects and shuts down on 2027-01-01. The query is limited to the allowed domains with `site:`. |
 
 Other settings: `RESEARCH_ENABLED` (default `true`), `RESEARCH_ALLOWED_DOMAINS` (comma-separated; default Stack Exchange sites, MDN, Microsoft Learn, Google Cloud, and AWS docs), `RESEARCH_MAX_SEARCHES` (default 2), `RESEARCH_MAX_RESULTS` per search (default 4), `RESEARCH_TIMEOUT_MS` (default 8000), `RESEARCH_CACHE_TTL_MINUTES` (default 60; identical searches in a batch are not repeated). The chosen model must support tool calling (e.g. `openai/gpt-oss-20b`); a model without it is rejected by OpenRouter and the next model is tried. The startup log lists the active research sources.
