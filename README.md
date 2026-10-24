@@ -155,23 +155,6 @@ Errors always use `{ "error": { "code", "message", "details?" } }`.
 | `DELETE` | `/activity` | required | Deletes the whole history: `{ deletedCount }`. |
 | `POST` | `/auth/register`, `/auth/login`, `/auth/logout`; `GET /auth/me`; `PATCH /users/me/alert-email` | | Account features |
 
-`POST /monitor` response (`200`):
-
-```json
-{
-  "summary": { "received": 2, "valid": 2, "invalid": 0, "anomalous": 1 },
-  "results": [{ "index": 1, "api_name": "AppointmentAPI", "response_time_ms": 5500, "status_code": 500,
-                "records_returned": 0, "anomalies": [{ "type": "FAILED_REQUEST", "rule": "status_code >= 400",
-                "observed": { "status_code": 500 }, "threshold": 400 }], "explanation": "...",
-                "analysis_status": "completed", "analysis_error": null, "detected_at": "..." }],
-  "errors": [{ "index": 2, "api_name": "X", "errors": [{ "field": "status_code", "message": "..." }] }],
-  "persistence": { "status": "saved | skipped | failed", "message": "..." },
-  "email": { "status": "sent | skipped | failed", "message": "..." }
-}
-```
-
-If the database or email fails, the analysis is still returned with `persistence.status` or `email.status` set to `failed`, and the error is logged. The server keeps running.
-
 ## Storage
 
 - `MonitoringRecord`: every valid observation (owner, metrics, anomaly count).
