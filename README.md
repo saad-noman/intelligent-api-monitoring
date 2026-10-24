@@ -1,4 +1,4 @@
-﻿# Intelligent API Monitoring & Alert System
+# Intelligent API Monitoring & Alert System
 
 Accepts monitoring **observations** about external APIs, detects anomalies with deterministic rules, writes a concise alert for each anomaly with an LLM (OpenRouter), stores the anomalies in MongoDB, and shows them in a React dashboard. It does not poll real APIs: observations are submitted as JSON (a static file).
 
@@ -9,8 +9,8 @@ Accepts monitoring **observations** about external APIs, detects anomalies with 
 
 ```bash
 npm install                      # root (concurrently)
-cd backend  && npm install && cp .env.example .env    # fill in MONGODB_URI, optional keys
-cd ../frontend && npm install && cp .env.example .env # VITE_API_BASE_URL
+cd backend && npm install        # configure environment variables
+cd ../frontend && npm install    # configure environment variables
 cd .. && npm run dev             # starts backend (5000) and frontend (5173)
 ```
 
@@ -56,26 +56,36 @@ Ways to submit the static JSON file (`backend/src/fixtures/api-responses.example
 
 ### How the latency threshold is decided
 
-1. **AI-researched guidance (first choice):** for each API in a submission, an AI agent searches Google through its `search_threshold_guidance` tool (Serper; needs `SERPER_API_KEY`), limited to `THRESHOLD_RESEARCH_DOMAINS` (default: nngroup.com, web.dev, developers.google.com, sre.google, cloud.google.com, docs.aws.amazon.com, aws.amazon.com, learn.microsoft.com, developer.mozilla.org). It picks one threshold and cites the results it came from. Guardrails accept it only if the number (in ms, or seconds converted to ms) appears in a cited, actually retrieved result and lies within `THRESHOLD_MIN_MS`-`THRESHOLD_MAX_MS`; otherwise the model is asked to correct it. The model is not shown the observed response time, and the comparison `response_time_ms > threshold` is made in code. Results are cached per API for `RESEARCH_CACHE_TTL_MINUTES`. Turn off with `THRESHOLD_RESEARCH_ENABLED=false`.
+1. **AI-researched guidance (first choice):** for each API in a submission, an AI agent searches Google through its `search_threshold_guidance` tool (Serper; needs `SERPER_API_KEY`), limited to `THRESHOLD_RESEARCH_DOMAINS` (default: nngroup.com, web.dev, developers.google.com, sre.google, cloud.google.com, docs.aws.amazon.com, aws.amazon.com, learn.microsoft.com, developer.mozilla.org). It picks one threshold and cites the results it came from. Guardrails accept it only if the number (in ms, or seconds converted to ms) appears in a cited, actually retrieved result and lies within `THRESHOLD_MIN_MS`–`THRESHOLD_MAX_MS`; otherwise the model is asked to correct it. The model is not shown the observed response time, and the comparison `response_time_ms > threshold` is made in code. Results are cached per API for `RESEARCH_CACHE_TTL_MINUTES`. Turn off with `THRESHOLD_RESEARCH_ENABLED=false`.
 2. **Fallbacks** when research is unavailable (no key, provider failure, no grounded answer): the learned baseline, then the configured SLO, as described below.
+3. **Learned per API:** once an API has `LATENCY_BASELINE_MIN_SAMPLES` (20) saved successful observations, its threshold is `median + LATENCY_MAD_MULTIPLIER (2.5) × MAD` of its latest `LATENCY_BASELINE_WINDOW` (200) successful response times. The median absolute deviation (MAD) is robust to a few slow outliers; 2.5 is the value recommended by Leys et al. (2013), *Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median*, J. Exp. Soc. Psychol. 49(4). Judging each service by its own latency distribution follows the Google SRE book (chapter "Service Level Objectives").
+4. **1 s floor:** the threshold is never below `LATENCY_FLOW_LIMIT_MS` (1000 ms), about the limit for keeping a user's flow of thought (Nielsen Norman Group, "Response Times: The 3 Important Limits"). Responses slower than `LATENCY_ATTENTION_LIMIT_MS` (10 s, the attention limit) are marked `attention_lost`, others `flow_interrupted` (`user_impact`).
+5. **Cold start:** without enough history (and always for guests), the configured SLO `HIGH_RESPONSE_TIME_MS` is used. No source defines a universal API latency limit, so this remains an explicit, configurable assumption.
 
-- **Learned per API:** once an API has `LATENCY_BASELINE_MIN_SAMPLES` (20) saved successful observations, its threshold is `median + LATENCY_MAD_MULTIPLIER (2.5) x MAD` of its latest `LATENCY_BASELINE_WINDOW` (200) successful response times. The median absolute deviation (MAD) is robust to a few slow outliers; 2.5 is the value recommended by Leys et al. (2013), *Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median*, J. Exp. Soc. Psychol. 49(4). Judging each service by its own latency distribution follows the Google SRE book (chapter "Service Level Objectives").
-- **1 s floor:** the threshold is never below `LATENCY_FLOW_LIMIT_MS` (1000 ms), about the limit for keeping a user's flow of thought (Nielsen Norman Group, "Response Times: The 3 Important Limits"). Responses slower than `LATENCY_ATTENTION_LIMIT_MS` (10 s, the attention limit) are marked `attention_lost`, others `flow_interrupted` (`user_impact`).
-- **Cold start:** without enough history (and always for guests), the configured SLO `HIGH_RESPONSE_TIME_MS` is used. No source defines a universal API latency limit, so this remains an explicit, configurable assumption.
-- Every finding records `threshold_source` (`learned_baseline`, `user_flow_limit`, or `configured_slo`) and the `baseline` it used, and its `rule` text explains the decision. The minimum sample size and window are operational choices, not research values.
+Every finding records `threshold_source` (`learned_baseline`, `user_flow_limit`, or `configured_slo`) and the `baseline` it used, and its `rule` text explains the decision. The minimum sample size and window are operational choices, not research values.
 
 Each finding stores `type`, `rule`, the exact `observed` values and the `threshold`. Observations with no finding are not flagged. The LLM only describes these findings; it cannot add or remove them.
 
 ## AI analysis (LLM)
 
-Configured with `OPENROUTER_API_KEY` (required: the server does not start without it, because every alert is written by the AI), `OPENROUTER_MODEL` (default `openai/gpt-oss-20b`; OpenRouter no longer offers a free OpenAI model), optional `OPENROUTER_FALLBACK_MODELS` (comma-separated), `OPENROUTER_BASE_URL`, `LLM_TIMEOUT_MS` (default 45000), `LLM_MAX_TOKENS` (default 4000), `LLM_RETRIES`, `LLM_RETRY_DELAY_MS`, `LLM_REPAIR_ATTEMPTS` (default 2), `LLM_REASONING_EFFORT` (`low`, `medium` (default), or `high`: how much reasoning models think before answering). The backend loads `backend/.env`, or `backend/.env.example` when no `.env` exists; the startup log names the file and the model order.
+Configured with `OPENROUTER_API_KEY` (required; the server does not start without it, because every alert is written by the AI), `OPENROUTER_MODEL` (default `openai/gpt-oss-20b`; OpenRouter no longer offers a free OpenAI model), optional `OPENROUTER_FALLBACK_MODELS` (comma-separated), `OPENROUTER_BASE_URL`, `LLM_TIMEOUT_MS` (default 45000), `LLM_MAX_TOKENS` (default 4000), `LLM_RETRIES`, `LLM_RETRY_DELAY_MS`, `LLM_REPAIR_ATTEMPTS` (default 2), `LLM_REASONING_EFFORT` (`low`, `medium` (default), or `high`: how much reasoning models think before answering).
 
-The rules decide **whether** something is an anomaly; the LLM analyses **what it may mean**. For each anomalous observation the model receives only `api_name`, the observed metrics, and the rule findings (never response bodies), may research the symptom on the web (below), and returns JSON:
+The backend loads environment variables from `backend/.env`. The startup log names the configuration file and the model order.
+
+### AI output
+
+For each anomalous observation, the model receives only `api_name`, the observed metrics, and the rule findings (never response bodies), may research the symptom on the web (below), and returns JSON:
 
 ```json
-{ "alert": "...", "severity": "low | medium | high | critical", "impact": "...",
-  "possible_causes": ["..."], "recommended_checks": ["..."],
-  "research_summary": "...", "references": [{ "id": "S1", "relevance": "..." }] }
+{
+  "alert": "...",
+  "severity": "low | medium | high | critical",
+  "impact": "...",
+  "possible_causes": ["..."],
+  "recommended_checks": ["..."],
+  "research_summary": "...",
+  "references": [{ "id": "S1", "relevance": "..." }]
+}
 ```
 
 `research_summary` and `references` are only requested when web research is on. The backend replaces each reference ID with the real `title`, `url`, and `site` of the retrieved result.
@@ -85,14 +95,18 @@ The rules decide **whether** something is an anomaly; the LLM analyses **what it
 The model gets one tool, `search_references(query)`, and decides itself what to search for (at most `RESEARCH_MAX_SEARCHES` calls per analysis). The backend checks the query, searches every configured source in parallel, and returns numbered, sanitized results (excerpt, accepted answer, score). The model compares them with the observed evidence, keeps only matching results, and cites their IDs.
 
 | Source | Setting | Notes |
-| --- | --- | --- |
+|---|---|---|
 | Google results via [Serper](https://serper.dev) | `SERPER_API_KEY` | Off without a key. Google's own Custom Search JSON API is closed to new projects and shuts down on 2027-01-01. The query is limited to the allowed domains with `site:`. |
 
-Other settings: `RESEARCH_ENABLED` (default `true`), `RESEARCH_ALLOWED_DOMAINS` (comma-separated; default Stack Exchange sites, MDN, Microsoft Learn, Google Cloud, and AWS docs), `RESEARCH_MAX_SEARCHES` (default 2), `RESEARCH_MAX_RESULTS` per search (default 4), `RESEARCH_TIMEOUT_MS` (default 8000), `RESEARCH_CACHE_TTL_MINUTES` (default 60; identical searches in a batch are not repeated). The chosen model must support tool calling (e.g. `openai/gpt-oss-20b`); a model without it is rejected by OpenRouter and the next model is tried. The startup log lists the active research sources.
+Other settings: `RESEARCH_ENABLED` (default `true`), `RESEARCH_ALLOWED_DOMAINS` (comma-separated; default Stack Exchange sites, MDN, Microsoft Learn, Google Cloud, and AWS docs), `RESEARCH_MAX_SEARCHES` (default 2), `RESEARCH_MAX_RESULTS` per search (default 4), `RESEARCH_TIMEOUT_MS` (default 8000), `RESEARCH_CACHE_TTL_MINUTES` (default 60; identical searches in a batch are not repeated).
 
-**System prompt** (`backend/src/modules/ai-alert-generator/prompts/index.js`, shown with research on):
+The chosen model must support tool calling (e.g. `openai/gpt-oss-20b`); a model without it is rejected by OpenRouter and the next model is tried. The startup log lists the active research sources.
 
-```
+### System prompt
+
+File: `backend/src/modules/ai-alert-generator/prompts/index.js`
+
+```text
 You are a site reliability analyst for an API monitoring dashboard.
 You receive JSON with one API name, its observed metrics, and anomalies that deterministic rules already detected.
 Scope and security:
@@ -161,10 +175,21 @@ Errors always use `{ "error": { "code", "message", "details?" } }`.
 
 ## Email anomaly reports
 
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (see `backend/.env.example` for a Gmail example); the startup log reports whether the SMTP connection was verified. Each user saves or removes a report address in **Settings** (separate from the login email) and can switch email reports **on/off** there (default on); while off, nothing is emailed.
+Configure these environment variables for SMTP:
 
-Settings endpoints: `GET /users/me/email-settings` (`{ alertEmail, emailReportsEnabled, deliveryConfigured }`), `PATCH`/`DELETE /users/me/alert-email`, `PATCH /users/me/email-reports` with `{ "enabled": true | false }`. After a logged-in submission with anomalies, a plain-text report is emailed automatically. **Alerts → Email report** sends all active alerts. Without SMTP settings or a saved address, the email is skipped and the reason is shown. Nothing is faked.
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+
+The startup log reports whether the SMTP connection was verified. Each user saves or removes a report address in **Settings** (separate from the login email) and can switch email reports **on/off** there (default on); while off, nothing is emailed.
+
+Settings endpoints: `GET /users/me/email-settings` (`{ alertEmail, emailReportsEnabled, deliveryConfigured }`), `PATCH`/`DELETE /users/me/alert-email`, `PATCH /users/me/email-reports` with `{ "enabled": true | false }`.
+
+After a logged-in submission with anomalies, a plain-text report is emailed automatically. **Alerts → Email report** sends all active alerts. Without SMTP settings or a saved address, the email is skipped and the reason is shown. Nothing is faked.
 
 ## Security notes
 
-Secrets live only in `.env` (see `.env.example`). They are never logged or returned. The logger redacts MongoDB credentials, and request bodies are never logged.
+Secrets live only in environment variables configured locally or in the deployment platform. They are never logged or returned. The logger redacts MongoDB credentials, and request bodies are never logged.
