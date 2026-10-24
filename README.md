@@ -57,14 +57,6 @@ Ways to submit the static JSON file (`backend/src/fixtures/api-responses.example
 ### How the latency threshold is decided
 
 1. **AI-researched guidance (first choice):** for each API in a submission, an AI agent searches Google through its `search_threshold_guidance` tool (Serper; needs `SERPER_API_KEY`), limited to `THRESHOLD_RESEARCH_DOMAINS` (default: nngroup.com, web.dev, developers.google.com, sre.google, cloud.google.com, docs.aws.amazon.com, aws.amazon.com, learn.microsoft.com, developer.mozilla.org). It picks one threshold and cites the results it came from. Guardrails accept it only if the number (in ms, or seconds converted to ms) appears in a cited, actually retrieved result and lies within `THRESHOLD_MIN_MS`–`THRESHOLD_MAX_MS`; otherwise the model is asked to correct it. The model is not shown the observed response time, and the comparison `response_time_ms > threshold` is made in code. Results are cached per API for `RESEARCH_CACHE_TTL_MINUTES`. Turn off with `THRESHOLD_RESEARCH_ENABLED=false`.
-2. **Fallbacks** when research is unavailable (no key, provider failure, no grounded answer): the learned baseline, then the configured SLO, as described below.
-3. **Learned per API:** once an API has `LATENCY_BASELINE_MIN_SAMPLES` (20) saved successful observations, its threshold is `median + LATENCY_MAD_MULTIPLIER (2.5) × MAD` of its latest `LATENCY_BASELINE_WINDOW` (200) successful response times. The median absolute deviation (MAD) is robust to a few slow outliers; 2.5 is the value recommended by Leys et al. (2013), *Detecting outliers: Do not use standard deviation around the mean, use absolute deviation around the median*, J. Exp. Soc. Psychol. 49(4). Judging each service by its own latency distribution follows the Google SRE book (chapter "Service Level Objectives").
-4. **1 s floor:** the threshold is never below `LATENCY_FLOW_LIMIT_MS` (1000 ms), about the limit for keeping a user's flow of thought (Nielsen Norman Group, "Response Times: The 3 Important Limits"). Responses slower than `LATENCY_ATTENTION_LIMIT_MS` (10 s, the attention limit) are marked `attention_lost`, others `flow_interrupted` (`user_impact`).
-5. **Cold start:** without enough history (and always for guests), the configured SLO `HIGH_RESPONSE_TIME_MS` is used. No source defines a universal API latency limit, so this remains an explicit, configurable assumption.
-
-Every finding records `threshold_source` (`learned_baseline`, `user_flow_limit`, or `configured_slo`) and the `baseline` it used, and its `rule` text explains the decision. The minimum sample size and window are operational choices, not research values.
-
-Each finding stores `type`, `rule`, the exact `observed` values and the `threshold`. Observations with no finding are not flagged. The LLM only describes these findings; it cannot add or remove them.
 
 ## AI analysis (LLM)
 
