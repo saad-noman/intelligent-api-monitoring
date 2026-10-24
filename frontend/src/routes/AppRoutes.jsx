@@ -5,19 +5,20 @@ import AlertsPage from '../pages/AlertsPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import RegisterPage from '../pages/RegisterPage.jsx';
 import ProfileSettingsPage from '../pages/ProfileSettingsPage.jsx';
+import { PATHS } from './paths.js';
 
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Guest-accessible */}
-      <Route path="/" element={<MonitoringPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path={PATHS.monitor} element={<MonitoringPage />} />
+      <Route path={PATHS.login} element={<LoginPage />} />
+      <Route path={PATHS.register} element={<RegisterPage />} />
 
       {/* Account-specific; the backend enforces authorization independently */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/alerts" element={<AlertsPage />} />
-        <Route path="/settings" element={<ProfileSettingsPage />} />
+        <Route path={PATHS.alerts} element={<AlertsPage />} />
+        <Route path={PATHS.settings} element={<ProfileSettingsPage />} />
       </Route>
     </Routes>
   );

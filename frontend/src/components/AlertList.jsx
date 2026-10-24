@@ -1,5 +1,12 @@
-// Future reusable list of anomaly alerts with their human-readable explanations.
-export default function AlertList() {
-  // TODO: Accept alerts via props and render them.
-  return <p className="placeholder">No alerts to display.</p>;
+import AlertCard from './AlertCard.jsx';
+
+// Reusable list of anomaly alerts with their human-readable explanations.
+export default function AlertList({ alerts }) {
+  return (
+    <div className="alert-list">
+      {alerts.map((alert, index) => (
+        <AlertCard key={`${alert.apiName}-${index}`} item={alert} />
+      ))}
+    </div>
+  );
 }

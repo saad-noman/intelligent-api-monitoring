@@ -1,5 +1,7 @@
-import { notImplemented } from './apiClient.js';
+import { apiRequest } from './apiClient.js';
+import { PAYLOAD_KEYS, readList, toMonitoringItem } from '../utils/monitoringData.js';
 
 export async function getActiveAlerts() {
-  throw notImplemented('GET /alerts');
+  const data = await apiRequest('/alerts');
+  return readList(data, PAYLOAD_KEYS.alerts).map(toMonitoringItem);
 }

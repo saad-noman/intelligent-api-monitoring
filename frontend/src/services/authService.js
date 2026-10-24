@@ -1,17 +1,17 @@
-import { notImplemented } from './apiClient.js';
+import { apiRequest } from './apiClient.js';
 
 export async function register(registration) {
-  throw notImplemented('POST /auth/register');
+  return apiRequest('/auth/register', { method: 'POST', body: registration });
 }
 
 export async function login(credentials) {
-  throw notImplemented('POST /auth/login');
+  return apiRequest('/auth/login', { method: 'POST', body: credentials });
 }
 
 export async function logout() {
-  throw notImplemented('POST /auth/logout');
+  return apiRequest('/auth/logout', { method: 'POST' });
 }
 
 export async function getCurrentAccount() {
-  throw notImplemented('GET /auth/me');
+  return apiRequest('/auth/me');
 }

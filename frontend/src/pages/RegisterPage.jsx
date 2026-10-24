@@ -1,8 +1,31 @@
+import { Link, useNavigate } from 'react-router';
+import AuthForm from '../components/AuthForm.jsx';
+import PageHeader from '../components/PageHeader.jsx';
+import { register } from '../services/authService.js';
+import { PATHS } from '../routes/paths.js';
+
 export default function RegisterPage() {
+  const navigate = useNavigate();
+
+  async function handleRegister(registration) {
+    await register(registration);
+    navigate(PATHS.login, { state: { registered: true } });
+  }
+
   return (
-    <section>
-      <h1>Create an account</h1>
-      <p className="placeholder">The registration form will appear here.</p>
+    <section className="narrow stack">
+      <PageHeader title="Create an" highlight="account">
+        An account is required for saved alerts and email reporting.
+      </PageHeader>
+      <AuthForm
+        submitLabel="Create account →"
+        onSubmit={handleRegister}
+        footer={
+          <>
+            Already have an account? <Link to={PATHS.login}>Log in</Link>
+          </>
+        }
+      />
     </section>
   );
 }

@@ -1,6 +1,6 @@
-import { notImplemented } from './apiClient.js';
+import { apiRequest } from './apiClient.js';
 
 // The alert-recipient email is separate from the account's login email.
 export async function updateAlertEmail(alertEmail) {
-  throw notImplemented('PATCH /users/me/alert-email');
+  return apiRequest('/users/me/alert-email', { method: 'PATCH', body: { alertEmail } });
 }
