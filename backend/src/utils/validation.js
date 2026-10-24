@@ -5,6 +5,7 @@ import { AppError } from './errors.js';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMAIL_MAX_LENGTH = 254;
 
+export const NAME_MAX_LENGTH = 50;
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
@@ -24,6 +25,15 @@ export function parseBoolean(value, label) {
   return value;
 }
 
+// A person's first or last name, trimmed.
+export function parseName(value, label) {
+  const name = requireString(value, label).trim();
+  if (name.length > NAME_MAX_LENGTH) {
+    throw validationError(`${label} must be at most ${NAME_MAX_LENGTH} characters.`);
+  }
+  return name;
+}
+
 // Emails are trimmed and lower-cased so the same address always matches one account.
 export function parseEmail(value, label = 'Email') {
   const email = requireString(value, label).trim().toLowerCase();
@@ -34,19 +44,19 @@ export function parseEmail(value, label = 'Email') {
 }
 
 // For login: only checks that a password was supplied.
-export function parsePassword(value) {
-  const password = requireString(value, 'Password');
+export function parsePassword(value, label = 'Password') {
+  const password = requireString(value, label);
   if (password.length > PASSWORD_MAX_LENGTH) {
-    throw validationError(`Password must be at most ${PASSWORD_MAX_LENGTH} characters.`);
+    throw validationError(`${label} must be at most ${PASSWORD_MAX_LENGTH} characters.`);
   }
   return password;
 }
 
-// For registration: also enforces the minimum length.
-export function parseNewPassword(value) {
-  const password = parsePassword(value);
+// For registration and password changes: also enforces the minimum length.
+export function parseNewPassword(value, label = 'Password') {
+  const password = parsePassword(value, label);
   if (password.length < PASSWORD_MIN_LENGTH) {
-    throw validationError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+    throw validationError(`${label} must be at least ${PASSWORD_MIN_LENGTH} characters.`);
   }
   return password;
 }

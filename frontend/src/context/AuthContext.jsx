@@ -13,6 +13,8 @@ export const AUTH_STATUS = {
 // with the backend. The account may be returned directly or wrapped under `wrapper`.
 const ACCOUNT_KEYS = {
   wrapper: 'account',
+  firstName: 'firstName',
+  lastName: 'lastName',
   email: 'email',
   alertEmail: 'alertEmail',
   emailReportsEnabled: 'emailReportsEnabled',
@@ -22,6 +24,8 @@ function toAccount(data) {
   const account = data?.[ACCOUNT_KEYS.wrapper] ?? data;
   if (!account) return null;
   return {
+    firstName: account[ACCOUNT_KEYS.firstName] ?? '',
+    lastName: account[ACCOUNT_KEYS.lastName] ?? '',
     email: account[ACCOUNT_KEYS.email] ?? null,
     alertEmail: account[ACCOUNT_KEYS.alertEmail] ?? null,
     emailReportsEnabled: account[ACCOUNT_KEYS.emailReportsEnabled] !== false,

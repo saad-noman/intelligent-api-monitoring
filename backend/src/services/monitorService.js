@@ -1,8 +1,9 @@
 // Coordinates the monitoring workflow for one submission:
 //   1. Validate the payload (item-level errors never discard valid items).
 //   2. anomalyDetectionService detects anomalies in each valid observation.
-//   3. The ai-alert-generator module writes an alert for each anomalous observation
-//      (LLM text, or the deterministic fallback template).
+//   3. alertAnalysisService has the AI write the alert and analysis for each anomalous
+//      observation. When the AI fails, the result says so (analysis_status "failed");
+//      no alert text is made up.
 //   4. Guest (ownerId === null): return the transient results; nothing is persisted.
 //      Authenticated: monitoringRecordService and alertStorageService persist the
 //      results for ownerId, then emailNotificationService emails the anomaly report.
@@ -14,7 +15,10 @@ import { logger } from '../utils/logger.js';
 import { validateObservations } from '../utils/observationValidation.js';
 import { createAlertId } from '../utils/alertId.js';
 import { detectAnomalies } from './anomalyDetectionService.js';
+import { loadLatencyBaselines } from './latencyBaselineService.js';
+import { loadResearchedThresholds } from './latencyThresholdResearchService.js';
 import { generateAlertExplanation } from '../modules/ai-alert-generator/index.js';
+import { analyzeAnomaly, NO_ANALYSIS_FIELDS } from './alertAnalysisService.js';
 import { saveRecords } from './monitoringRecordService.js';
 import { saveAnomalies } from './alertStorageService.js';
 import { notifyAnomalies, EMAIL_STATUS } from './emailNotificationService.js';
@@ -24,6 +28,8 @@ export const PERSISTENCE_STATUS = { saved: 'saved', skipped: 'skipped', failed: 
 // Dependencies are injectable so tests can simulate database, LLM, and email failures.
 const defaultDependencies = {
   getPolicy: () => getConfig().monitoring,
+  loadBaselines: loadLatencyBaselines,
+  researchThresholds: loadResearchedThresholds,
   explain: generateAlertExplanation,
   saveRecords,
   saveAnomalies,
@@ -34,23 +40,14 @@ function isAnomalous(result) {
   return result.anomalies.length > 0;
 }
 
-// What the AI analysis receives: API name, observed metrics, and the rule findings.
-function toAnalysisInput(observation, findings) {
-  return {
-    apiName: observation.api_name,
-    metrics: {
-      response_time_ms: observation.response_time_ms,
-      status_code: observation.status_code,
-      records_returned: observation.records_returned,
-    },
-    findings,
-  };
-}
-
-async function evaluateObservation(observation, policy, deps, detectedAt) {
-  const findings = detectAnomalies(observation, policy);
+// `thresholdInputs`: { baselines, researched } maps keyed by api_name.
+async function evaluateObservation(observation, policy, deps, detectedAt, thresholdInputs) {
+  const findings = detectAnomalies(observation, policy, {
+    latencyBaseline: thresholdInputs.baselines.get(observation.api_name),
+    latencyResearch: thresholdInputs.researched.get(observation.api_name),
+  });
   const isIssue = findings.length > 0;
-  const alert = isIssue ? await deps.explain(toAnalysisInput(observation, findings)) : null;
+  const analysisFields = isIssue ? await analyzeAnomaly(observation, findings, deps.explain) : NO_ANALYSIS_FIELDS;
 
   return {
     // Every detected issue gets a unique ID; normal observations have none.
@@ -61,21 +58,26 @@ async function evaluateObservation(observation, policy, deps, detectedAt) {
     status_code: observation.status_code,
     records_returned: observation.records_returned,
     anomalies: findings,
-    explanation: alert?.message ?? null,
-    alert_source: alert?.source ?? null,
-    // AI analysis { severity, impact, possible_causes, recommended_checks }; null for fallback alerts.
-    analysis: alert?.analysis ?? null,
-    ai_model: alert?.model ?? null,
+    // explanation (AI alert text), analysis_status ("completed" | "failed"), analysis_error,
+    // analysis { severity, impact, possible_causes, recommended_checks, research_summary,
+    // references }, ai_model. All null for normal observations.
+    ...analysisFields,
     detected_at: detectedAt,
   };
 }
 
 // Sequential on purpose: keeps free-tier LLM rate limits from failing a whole batch.
-async function evaluateAll(observations, policy, deps) {
+// Baselines come from history saved before this submission, so a batch never judges itself.
+async function evaluateAll(observations, policy, deps, ownerId) {
   const detectedAt = new Date();
+  const apiNames = observations.map((observation) => observation.api_name);
+  const thresholdInputs = {
+    baselines: await deps.loadBaselines(ownerId, apiNames, policy),
+    researched: await deps.researchThresholds(apiNames),
+  };
   const results = [];
   for (const observation of observations) {
-    results.push(await evaluateObservation(observation, policy, deps, detectedAt));
+    results.push(await evaluateObservation(observation, policy, deps, detectedAt, thresholdInputs));
   }
   return results;
 }
@@ -116,7 +118,7 @@ export async function runMonitoring(payload, { ownerId }, deps = defaultDependen
   const policy = deps.getPolicy();
   const { observations, errors } = validateObservations(payload, policy);
 
-  const results = await evaluateAll(observations, policy, deps);
+  const results = await evaluateAll(observations, policy, deps, ownerId);
   const anomalous = results.filter(isAnomalous);
   const persistence = await persistResults(ownerId, results, deps);
   const email = await emailReport(ownerId, anomalous, persistence, deps);

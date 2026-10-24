@@ -12,10 +12,10 @@ export const PAYLOAD_KEYS = {
   explanation: 'explanation',
 };
 
-// How the alert text was produced (backend `alert_source`).
-export const ALERT_SOURCE_LABELS = {
-  llm: 'AI analysis',
-  fallback: 'Detection summary (AI unavailable)',
+// Outcome of the AI analysis of an anomaly (backend `analysis_status`).
+export const ANALYSIS_STATUS = {
+  completed: 'completed',
+  failed: 'failed',
 };
 
 // API response fields from the specification. Every table, card, and input hint reads
@@ -52,8 +52,10 @@ export function toMonitoringItem(raw = {}) {
     // Full rule evidence: [{ type, rule, observed, threshold }].
     findings: findings.filter((anomaly) => typeof anomaly === 'object' && anomaly !== null),
     explanation: raw[PAYLOAD_KEYS.explanation] ?? null,
-    alertSource: raw.alert_source ?? null,
-    // AI analysis { severity, impact, possible_causes, recommended_checks }, or null.
+    analysisStatus: raw.analysis_status ?? null,
+    // Why the AI analysis failed (per model), when analysisStatus is "failed".
+    analysisError: raw.analysis_error ?? null,
+    // AI analysis { severity, impact, possible_causes, recommended_checks, research_summary, references }, or null.
     analysis: raw.analysis ?? null,
     aiModel: raw.ai_model ?? null,
     active: raw.active ?? null,

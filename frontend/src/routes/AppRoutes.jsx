@@ -7,7 +7,10 @@ import HistoryPage from '../pages/HistoryPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import RegisterPage from '../pages/RegisterPage.jsx';
 import ProfileSettingsPage from '../pages/ProfileSettingsPage.jsx';
+import ProfilePage from '../pages/ProfilePage.jsx';
+import AccountSectionPage from '../pages/AccountSectionPage.jsx';
 import { PATHS } from './paths.js';
+import { ACCOUNT_SECTIONS } from './accountSections.js';
 
 export default function AppRoutes() {
   return (
@@ -23,6 +26,10 @@ export default function AppRoutes() {
         <Route path={PATHS.alertDetail} element={<AlertDetailPage />} />
         <Route path={PATHS.history} element={<HistoryPage />} />
         <Route path={PATHS.settings} element={<ProfileSettingsPage />} />
+        <Route path={PATHS.profile} element={<ProfilePage />} />
+        {ACCOUNT_SECTIONS.map((section) => (
+          <Route key={section.path} path={section.path} element={<AccountSectionPage section={section} />} />
+        ))}
       </Route>
     </Routes>
   );

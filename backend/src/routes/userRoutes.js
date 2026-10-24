@@ -4,6 +4,10 @@ import {
   updateAlertEmail,
   removeAlertEmail,
   updateEmailReports,
+  updateName,
+  updateAccountEmail,
+  updatePassword,
+  deleteAccount,
 } from '../controllers/userController.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 
@@ -14,5 +18,9 @@ router.get('/me/email-settings', requireAuth, getEmailSettings);
 router.patch('/me/alert-email', requireAuth, updateAlertEmail);
 router.delete('/me/alert-email', requireAuth, removeAlertEmail);
 router.patch('/me/email-reports', requireAuth, updateEmailReports);
+router.patch('/me/name', requireAuth, updateName);
+router.patch('/me/email', requireAuth, updateAccountEmail);
+router.patch('/me/password', requireAuth, updatePassword);
+router.delete('/me', requireAuth, deleteAccount);
 
 export default router;

@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { AUTH_STATUS, useAuth } from '../context/AuthContext.jsx';
 import { NAV_LINKS, PATHS } from '../routes/paths.js';
+import UserAvatar from './UserAvatar.jsx';
 
 // Sticky header: brand, pill navigation (collapses into a menu on mobile), account action.
 export default function AppHeader() {
-  const { status, signOut } = useAuth();
+  const { account, status, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const close = () => setIsOpen(false);
   const isAuthenticated = status === AUTH_STATUS.authenticated;
@@ -47,6 +48,8 @@ export default function AppHeader() {
           </button>
         )}
       </nav>
+
+      {isAuthenticated && <UserAvatar account={account} onClick={close} />}
     </header>
   );
 }

@@ -4,7 +4,8 @@ import EmailReportsSettings from '../components/EmailReportsSettings.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // Account settings: the report email address (separate from the login email) and the
-// on/off switch for anomaly report emails.
+// on/off switch for anomaly report emails. Name, login email, password, and account
+// deletion live on the Profile page (opened from the profile circle).
 export default function ProfileSettingsPage() {
   const { account, refresh } = useAuth();
 

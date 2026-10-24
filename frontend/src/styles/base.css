@@ -169,6 +169,31 @@ main {
   background: var(--navy);
 }
 
+/* Circle with the signed-in user's initials (top right). */
+.user-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--on-dark);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-decoration: none;
+  border: 2px solid var(--orange);
+}
+
+.user-avatar:hover {
+  background: var(--navy-dark);
+}
+
+/* Pushes the navigation right, next to the profile circle. */
+.app-header .main-nav {
+  margin-left: auto;
+}
+
 .menu-toggle {
   display: none;
   padding: 0.5rem 1rem;
@@ -779,6 +804,11 @@ textarea:focus {
   .main-nav .btn-primary {
     background: var(--orange);
   }
+
+  /* Keep the avatar on the first row next to the menu button; the open menu goes below. */
+  .app-header .main-nav {
+    order: 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -812,6 +842,39 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* Profile page: account details on the left, account section buttons on the right. */
+.profile-page {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Profile page: account section buttons stacked top to bottom, square, with a shadow below. */
+.account-section-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.account-section-buttons .btn {
+  border-radius: 0;
+  box-shadow: 0 6px 10px -4px rgba(30, 58, 110, 0.35);
+  white-space: nowrap;
 }
 
 /* Rule evidence for each detected anomaly. */

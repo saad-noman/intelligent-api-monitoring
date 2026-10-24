@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { createApp } from './app.js';
 import { logger } from './utils/logger.js';
 import { checkEmailDelivery } from './modules/email-notifications/index.js';
+import { getReferenceSearch } from './modules/ai-alert-generator/index.js';
 
 async function start() {
   const config = loadConfig();
@@ -15,10 +16,12 @@ async function start() {
   const server = app.listen(config.port, () => {
     logger.info(`Server listening on port ${config.port} (${config.nodeEnv}).`);
     logger.info(`Configuration file: ${config.envFileName ?? 'none (environment variables only)'}.`);
+    logger.info(`AI analysis models (in order): ${config.llm.models.join(', ')}.`);
+    const referenceSearch = getReferenceSearch();
     logger.info(
-      config.llm.apiKey
-        ? `AI analysis models (in order): ${config.llm.models.join(', ')}.`
-        : 'AI analysis disabled: OPENROUTER_API_KEY is not set.',
+      referenceSearch
+        ? `AI web research sources: ${referenceSearch.providerNames.join(', ')}.`
+        : 'AI web research disabled.',
     );
   });
   // Runs in the background; the result is only logged.

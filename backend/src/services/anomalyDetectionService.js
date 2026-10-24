@@ -2,11 +2,20 @@
 // Pure logic: no database access, no HTTP concerns, no AI calls. The LLM only describes
 // the findings returned here; it never adds or removes them.
 //
-// Each finding: { type, rule, observed, threshold? }
+// Each finding: { type, rule, observed, threshold?, ... }
 //   type      - one of ANOMALY_TYPES
 //   rule      - the human-readable condition that triggered it
 //   observed  - the exact observed values the rule looked at
+// High latency also records threshold_source, baseline, and user_impact; failed requests
+// record status_class (RFC 9110: 4xx client error, 5xx server error).
 import { METRIC_FIELDS } from '../utils/observationValidation.js';
+import { resolveLatencyThreshold, classifyUserImpact, describeLatencyRule } from '../utils/latencyThreshold.js';
+
+// RFC 9110 status code classes, keyed by the first digit of the status code.
+const STATUS_CLASSES = {
+  4: 'client_error',
+  5: 'server_error',
+};
 
 export const ANOMALY_TYPES = {
   highResponseTime: 'HIGH_RESPONSE_TIME',
@@ -17,15 +26,29 @@ export const ANOMALY_TYPES = {
   schemaMismatch: 'SCHEMA_MISMATCH',
 };
 
-function highResponseTimeRule(observation, policy) {
+// The threshold comes from AI research of published guidance when available, else from
+// this API's learned history, else the configured SLO (see utils/latencyThreshold.js).
+// The comparison with the observed response time is always made here, in code.
+function highResponseTimeRule(observation, policy, context) {
   const value = observation.response_time_ms;
-  if (value === null || value <= policy.highResponseTimeMs) return null;
+  if (value === null) return null;
+
+  const threshold = resolveLatencyThreshold(context.latencyBaseline, policy, context.latencyResearch);
+  if (value <= threshold.value) return null;
   return {
     type: ANOMALY_TYPES.highResponseTime,
-    rule: `response_time_ms > ${policy.highResponseTimeMs}`,
+    rule: describeLatencyRule(threshold, policy.latency),
     observed: { response_time_ms: value },
-    threshold: policy.highResponseTimeMs,
+    threshold: threshold.value,
+    threshold_source: threshold.source,
+    baseline: threshold.baseline,
+    research: threshold.research,
+    user_impact: classifyUserImpact(value, policy.latency),
   };
+}
+
+function statusClassOf(statusCode) {
+  return STATUS_CLASSES[Math.floor(statusCode / 100)] ?? 'other';
 }
 
 function failedRequestRule(observation, policy) {
@@ -36,6 +59,7 @@ function failedRequestRule(observation, policy) {
     rule: `status_code >= ${policy.failedStatusMin}`,
     observed: { status_code: value },
     threshold: policy.failedStatusMin,
+    status_class: statusClassOf(value),
   };
 }
 
@@ -103,6 +127,8 @@ const RULES = [
 ];
 
 // Returns the findings for one observation (empty when nothing is anomalous).
-export function detectAnomalies(observation, policy) {
-  return RULES.map((rule) => rule(observation, policy)).filter(Boolean);
+// `context.latencyBaseline`: this API's learned baseline, or undefined/null when none.
+// `context.latencyResearch`: this API's AI-researched threshold, or undefined/null when none.
+export function detectAnomalies(observation, policy, context = {}) {
+  return RULES.map((rule) => rule(observation, policy, context)).filter(Boolean);
 }

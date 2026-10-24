@@ -1,6 +1,7 @@
 // OpenRouter chat-completions provider (OpenAI-compatible API).
-// Implements: generate({ model, system, prompt }) -> Promise<string>.
-// The model is chosen per call so the agent can move to a fallback model.
+// Implements: chat({ model, messages, tools, toolChoice }) -> Promise<{ content, toolCalls }>.
+// The model is chosen per call so the agent can move to a fallback model. `tools` is
+// optional; models without tool support are rejected by OpenRouter and the agent moves on.
 // The API key is only placed in the Authorization header; it is never logged or returned.
 
 const TEMPERATURE = 0.2;
@@ -16,17 +17,16 @@ export class LlmProviderError extends Error {
   }
 }
 
-function buildRequestBody({ model, system, prompt, maxTokens }) {
+function buildRequestBody({ model, messages, tools, toolChoice, maxTokens, reasoningEffort }) {
+  const toolFields = tools ? { tools, tool_choice: toolChoice } : {};
   return {
     model,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: prompt },
-    ],
+    messages,
+    ...toolFields,
     max_tokens: maxTokens,
     temperature: TEMPERATURE,
-    // Keeps reasoning models (such as gpt-oss) from spending the token budget on reasoning.
-    reasoning: { effort: 'low' },
+    // How much reasoning models (such as gpt-oss) think before answering (LLM_REASONING_EFFORT).
+    reasoning: { effort: reasoningEffort },
   };
 }
 
@@ -39,14 +39,17 @@ async function postWithTimeout(url, options, timeoutMs) {
   }
 }
 
-async function readContent(response) {
+// Returns the reply text (null when the model only called tools) and its tool calls.
+async function readMessage(response) {
   if (response.status === HTTP_TOO_MANY_REQUESTS) throw new LlmProviderError('rate_limited', response.status);
   if (!response.ok) throw new LlmProviderError('http_error', response.status);
 
   const data = await response.json().catch(() => null);
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || content.trim() === '') throw new LlmProviderError('empty_response');
-  return content;
+  const message = data?.choices?.[0]?.message;
+  const content = typeof message?.content === 'string' && message.content.trim() !== '' ? message.content : null;
+  const toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+  if (content === null && toolCalls.length === 0) throw new LlmProviderError('empty_response');
+  return { content, toolCalls };
 }
 
 const TEMPORARY_REASONS = ['timeout', 'network_error'];
@@ -59,22 +62,19 @@ export function isTemporaryError(error) {
   return TEMPORARY_REASONS.includes(error.reason);
 }
 
-// Returns null when no API key is configured.
-export function createLlmProvider({ apiKey, baseUrl, timeoutMs, maxTokens }) {
-  if (!apiKey) return null;
-
+export function createLlmProvider({ apiKey, baseUrl, timeoutMs, maxTokens, reasoningEffort }) {
   return {
-    async generate({ model, system, prompt }) {
+    async chat({ model, messages, tools, toolChoice }) {
       const response = await postWithTimeout(
         `${baseUrl}/chat/completions`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildRequestBody({ model, system, prompt, maxTokens })),
+          body: JSON.stringify(buildRequestBody({ model, messages, tools, toolChoice, maxTokens, reasoningEffort })),
         },
         timeoutMs,
       );
-      return readContent(response);
+      return readMessage(response);
     },
   };
 }

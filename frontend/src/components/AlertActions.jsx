@@ -1,18 +1,21 @@
 import { Link } from 'react-router';
 import DeleteButton from './DeleteButton.jsx';
 import { PATHS } from '../routes/paths.js';
+import { ANALYSIS_STATUS } from '../utils/monitoringData.js';
 
 // Names of the actions that can be in progress on the alert detail page.
 export const ALERT_ACTIONS = {
   status: 'status',
+  analyze: 'analyze',
   email: 'email',
   copy: 'copy',
   delete: 'delete',
 };
 
 // Action panel for one saved alert. Only one action runs at a time (`busyAction`).
-export default function AlertActions({ alert, busyAction, onToggleStatus, onEmail, onCopyId, onDelete }) {
+export default function AlertActions({ alert, busyAction, onToggleStatus, onAnalyze, onEmail, onCopyId, onDelete }) {
   const isBusy = busyAction !== null;
+  const analyzeLabel = alert.analysisStatus === ANALYSIS_STATUS.completed ? 'Re-run AI analysis' : 'Run AI analysis';
 
   return (
     <aside className="card alert-actions">
@@ -20,6 +23,10 @@ export default function AlertActions({ alert, busyAction, onToggleStatus, onEmai
 
       <button type="button" className="btn btn-primary btn-sm" onClick={onToggleStatus} disabled={isBusy}>
         {busyAction === ALERT_ACTIONS.status ? 'Updating…' : alert.active ? 'Mark as resolved' : 'Reopen alert'}
+      </button>
+
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onAnalyze} disabled={isBusy}>
+        {busyAction === ALERT_ACTIONS.analyze ? 'Analysing…' : analyzeLabel}
       </button>
 
       <button type="button" className="btn btn-secondary btn-sm" onClick={onEmail} disabled={isBusy}>

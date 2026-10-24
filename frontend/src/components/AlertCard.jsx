@@ -5,7 +5,8 @@ import AnomalyTags from './AnomalyTags.jsx';
 import EvidenceList from './EvidenceList.jsx';
 import AlertId from './AlertId.jsx';
 import AiAnalysis from './AiAnalysis.jsx';
-import { ALERT_SOURCE_LABELS, METRIC_FIELDS } from '../utils/monitoringData.js';
+import AlertMessage from './AlertMessage.jsx';
+import { METRIC_FIELDS } from '../utils/monitoringData.js';
 import { formatAlertStatus, formatDateTime, NOT_AVAILABLE } from '../utils/format.js';
 
 // One stored anomaly: the alert text, kept visually separate from the observed facts.
@@ -27,12 +28,7 @@ export default function AlertCard({ item, showViewLink = true, onDelete, isDelet
       </header>
 
       <section className="explanation">
-        <span className="section-label">{ALERT_SOURCE_LABELS[item.alertSource] ?? 'Alert'}</span>
-        {item.explanation ? (
-          <p>{item.explanation}</p>
-        ) : (
-          <p className="muted">An alert message is not available for this anomaly.</p>
-        )}
+        <AlertMessage item={item} retryHint="Use “Run AI analysis” on the alert page to try again." />
         <small className="muted">Possible causes are suggestions, not confirmed findings.</small>
       </section>
 

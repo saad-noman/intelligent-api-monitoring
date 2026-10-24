@@ -5,10 +5,13 @@ import { listActiveAlerts as queryActiveAlerts, findAlertById } from '../service
 import {
   updateAlertStatus as saveAlertStatus,
   deleteAlert as removeAlert,
+  deleteAllAlerts as removeAllAlerts,
   assignMissingAlertIds,
+  upgradeLegacyAlerts,
 } from '../services/alertStorageService.js';
+import { reanalyzeAlert } from '../services/alertAnalysisService.js';
 import { notifyAnomalies, EMAIL_STATUS } from '../services/emailNotificationService.js';
-import { recordActivity, deleteActivitiesForAlert } from '../services/alertActivityService.js';
+import { recordActivity, deleteActivitiesForAlert, clearActivities } from '../services/alertActivityService.js';
 import { ACTIVITY_ACTIONS } from '../models/AlertActivity.js';
 import { normalizeAlertId } from '../utils/alertId.js';
 import { AppError } from '../utils/errors.js';
@@ -27,16 +30,23 @@ function parseAlertIdParam(req) {
   return alertId;
 }
 
+// Brings the user's older alerts up to date: missing IDs are assigned and alerts saved
+// with the old fallback text are marked as needing AI analysis.
+async function prepareAlerts(userId) {
+  await assignMissingAlertIds(userId);
+  await upgradeLegacyAlerts(userId);
+}
+
 // Loads one of the user's alerts or throws 404.
 async function requireAlert(req) {
+  await upgradeLegacyAlerts(req.user.id);
   const alert = await findAlertById(req.user.id, parseAlertIdParam(req));
   if (!alert) throw alertNotFoundError();
   return alert;
 }
 
-// Active alerts for the user; older alerts without an ID get one first.
 async function loadActiveAlerts(userId) {
-  await assignMissingAlertIds(userId);
+  await prepareAlerts(userId);
   return queryActiveAlerts(userId);
 }
 
@@ -61,6 +71,16 @@ export async function updateAlertStatus(req, res) {
   res.json({ alert });
 }
 
+// POST /alerts/:alertId/analyze (requireAuth): runs the AI analysis of one alert again and
+// returns the updated alert; its analysis_status says whether the analysis completed.
+export async function analyzeAlert(req, res) {
+  // Upgrades a legacy alert first, so the upgrade can never overwrite the new analysis.
+  const { alert_id: alertId } = await requireAlert(req);
+  const alert = await reanalyzeAlert(req.user.id, alertId);
+  if (!alert) throw alertNotFoundError();
+  res.json({ alert });
+}
+
 // DELETE /alerts/:alertId (requireAuth): permanently deletes one alert.
 // The alert's history entries are deleted with it.
 export async function deleteAlert(req, res) {
@@ -69,6 +89,14 @@ export async function deleteAlert(req, res) {
   if (!deleted) throw alertNotFoundError();
   await deleteActivitiesForAlert(req.user.id, alertId);
   res.status(204).end();
+}
+
+// DELETE /alerts (requireAuth): permanently deletes all of the user's alerts (active and
+// resolved). Their history entries are deleted with them.
+export async function deleteAllAlerts(req, res) {
+  const deletedCount = await removeAllAlerts(req.user.id);
+  await clearActivities(req.user.id);
+  res.json({ deletedCount });
 }
 
 // POST /alerts/report (requireAuth): emails the user's active alerts to their report email.

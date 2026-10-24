@@ -2,12 +2,14 @@
 // account persistence live in services/authService.js.
 import * as authService from '../services/authService.js';
 import { getAccount } from '../services/userService.js';
-import { parseEmail, parsePassword, parseNewPassword } from '../utils/validation.js';
+import { parseEmail, parseName, parsePassword, parseNewPassword } from '../utils/validation.js';
 
 // POST /auth/register
 export async function register(req, res) {
-  const { email, password } = req.body ?? {};
+  const { firstName, lastName, email, password } = req.body ?? {};
   const account = await authService.registerAccount({
+    firstName: parseName(firstName, 'First name'),
+    lastName: parseName(lastName, 'Last name'),
     email: parseEmail(email),
     password: parseNewPassword(password),
   });

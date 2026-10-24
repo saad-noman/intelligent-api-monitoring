@@ -18,6 +18,12 @@ export async function saveRecords(ownerId, results) {
   return MonitoringRecord.insertMany(documents);
 }
 
+// Deletes all of the owner's monitoring records. Returns how many were deleted.
+export async function deleteAllRecords(ownerId) {
+  const { deletedCount } = await MonitoringRecord.deleteMany({ owner: ownerId });
+  return deletedCount;
+}
+
 export async function listRecords(ownerId) {
   const records = await MonitoringRecord.find({ owner: ownerId }).sort({ createdAt: -1 }).limit(HISTORY_LIMIT).lean();
   return records.map((record) => ({

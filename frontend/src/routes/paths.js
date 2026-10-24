@@ -5,6 +5,11 @@ export const PATHS = {
   alertDetail: '/alerts/:alertId',
   history: '/history',
   settings: '/settings',
+  profile: '/profile',
+  profileName: '/profile/name',
+  profileEmail: '/profile/email',
+  profilePassword: '/profile/password',
+  profileDeleteAccount: '/profile/delete-account',
   login: '/login',
   register: '/register',
 };

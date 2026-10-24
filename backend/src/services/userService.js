@@ -7,6 +7,8 @@ import { AppError } from '../utils/errors.js';
 export function toAccount(user) {
   return {
     id: user._id.toString(),
+    firstName: user.firstName ?? '',
+    lastName: user.lastName ?? '',
     email: user.email,
     alertEmail: user.alertEmail ?? null,
     emailReportsEnabled: user.emailReportsEnabled !== false,
@@ -43,6 +45,15 @@ async function updateUserFields(userId, fields) {
   Object.assign(user, fields);
   await user.save();
   return toAccount(user);
+}
+
+// Deletes only the user document; see accountDeletionService for the full cleanup.
+export async function deleteUser(userId) {
+  await User.deleteOne({ _id: userId });
+}
+
+export async function updateName(userId, { firstName, lastName }) {
+  return updateUserFields(userId, { firstName, lastName });
 }
 
 export async function updateAlertEmail(userId, alertEmail) {

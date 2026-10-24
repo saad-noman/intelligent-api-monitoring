@@ -7,6 +7,10 @@ const { Schema } = mongoose;
 
 const userSchema = new Schema(
   {
+    // Required at registration (validated in the controller). Not required here so that
+    // accounts created before names existed can still be saved.
+    firstName: { type: String, default: '', trim: true },
+    lastName: { type: String, default: '', trim: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     // Excluded from queries by default; load explicitly with .select('+passwordHash').
     passwordHash: { type: String, required: true, select: false },

@@ -21,17 +21,65 @@ function sessionExpiryDate() {
   return new Date(Date.now() + getConfig().sessionTtlHours * MS_PER_HOUR);
 }
 
-export async function registerAccount({ email, password }) {
+function incorrectPasswordError() {
+  return new AppError(403, 'INCORRECT_PASSWORD', 'The current password is incorrect.');
+}
+
+// Turns MongoDB's duplicate-email error into a client-safe 409; other errors pass through.
+function toEmailTakenError(error) {
+  if (error.code === MONGO_DUPLICATE_KEY) {
+    return new AppError(409, 'EMAIL_TAKEN', 'An account with this email already exists.');
+  }
+  return error;
+}
+
+// Loads the user with their password hash, or throws 404.
+async function findUserWithPassword(userId) {
+  const user = await User.findById(userId).select('+passwordHash');
+  if (!user) throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'Account not found.');
+  return user;
+}
+
+export async function registerAccount({ firstName, lastName, email, password }) {
   const passwordHash = await hashPassword(password);
   try {
-    const user = await User.create({ email, passwordHash });
+    const user = await User.create({ firstName, lastName, email, passwordHash });
     return toAccount(user);
   } catch (error) {
-    if (error.code === MONGO_DUPLICATE_KEY) {
-      throw new AppError(409, 'EMAIL_TAKEN', 'An account with this email already exists.');
-    }
-    throw error;
+    throw toEmailTakenError(error);
   }
+}
+
+// Used before sensitive account changes. Returns the user document; throws 403 on a wrong password.
+export async function confirmPassword(userId, password) {
+  const user = await findUserWithPassword(userId);
+  const passwordMatches = await verifyPassword(password, user.passwordHash);
+  if (!passwordMatches) throw incorrectPasswordError();
+  return user;
+}
+
+// Changes the login email after the current password is confirmed.
+export async function changeEmail(userId, { currentPassword, email }) {
+  const user = await confirmPassword(userId, currentPassword);
+  user.email = email;
+  try {
+    await user.save();
+  } catch (error) {
+    throw toEmailTakenError(error);
+  }
+  return toAccount(user);
+}
+
+// Changes the password after the current password is confirmed.
+export async function changePassword(userId, { currentPassword, newPassword }) {
+  const user = await confirmPassword(userId, currentPassword);
+  user.passwordHash = await hashPassword(newPassword);
+  await user.save();
+}
+
+// Logs the user out everywhere, e.g. when the account is deleted.
+export async function endAllSessions(userId) {
+  await Session.deleteMany({ userId });
 }
 
 // Returns the account when the email and password match; otherwise throws 401.

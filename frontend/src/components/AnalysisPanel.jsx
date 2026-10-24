@@ -1,11 +1,11 @@
 import ViewButton from './ViewButton.jsx';
 import AnomalyTags from './AnomalyTags.jsx';
-import FormattedText from './FormattedText.jsx';
 import StatusMessage from './StatusMessage.jsx';
 import EvidenceList from './EvidenceList.jsx';
 import AlertId from './AlertId.jsx';
 import AiAnalysis from './AiAnalysis.jsx';
-import { ALERT_SOURCE_LABELS, isAnomalous, METRIC_FIELDS } from '../utils/monitoringData.js';
+import AlertMessage from './AlertMessage.jsx';
+import { isAnomalous, METRIC_FIELDS } from '../utils/monitoringData.js';
 import { NOT_AVAILABLE } from '../utils/format.js';
 
 // `canView`: the alert was saved, so its detail page exists.
@@ -20,14 +20,10 @@ function AnalysisEntry({ item, canView }) {
         <AnomalyTags anomalies={item.anomalies} />
       </header>
 
-      <span className="section-label">{ALERT_SOURCE_LABELS[item.alertSource] ?? 'Alert'}</span>
-      {item.explanation ? (
-        <FormattedText text={item.explanation} />
-      ) : (
-        <p className="muted">
-          <em>An alert message is not available for this anomaly.</em>
-        </p>
-      )}
+      <AlertMessage
+        item={item}
+        retryHint={canView ? 'Open the alert and use “Run AI analysis” to try again.' : 'Submit the data again to retry.'}
+      />
 
       <AiAnalysis analysis={item.analysis} model={item.aiModel} />
 

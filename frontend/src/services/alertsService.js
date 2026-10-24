@@ -22,9 +22,21 @@ export async function updateAlertStatus(alertId, active) {
   return toMonitoringItem(data?.alert);
 }
 
+// Runs the AI analysis of one alert again. Returns the updated alert.
+export async function reanalyzeAlert(alertId) {
+  const data = await apiRequest(`${alertPath(alertId)}/analyze`, { method: 'POST' });
+  return toMonitoringItem(data?.alert);
+}
+
 // Permanently deletes one alert.
 export async function deleteAlert(alertId) {
   await apiRequest(alertPath(alertId), { method: 'DELETE' });
+}
+
+// Permanently deletes all saved alerts (active and resolved). Returns how many were deleted.
+export async function deleteAllAlerts() {
+  const data = await apiRequest('/alerts', { method: 'DELETE' });
+  return data?.deletedCount ?? 0;
 }
 
 // Emails the active alerts to the saved report email. Returns { status, message }.

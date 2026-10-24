@@ -5,7 +5,14 @@ import AlertSearch from '../components/AlertSearch.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import StatusMessage from '../components/StatusMessage.jsx';
 import OutcomeNotice from '../components/OutcomeNotice.jsx';
-import { deleteAlert, emailAlertReport, getActiveAlerts, getAlertById } from '../services/alertsService.js';
+import DeleteButton from '../components/DeleteButton.jsx';
+import {
+  deleteAlert,
+  deleteAllAlerts,
+  emailAlertReport,
+  getActiveAlerts,
+  getAlertById,
+} from '../services/alertsService.js';
 import { isNoDataError, toFriendlyMessage } from '../utils/errorMessages.js';
 import { ALERT_OUTCOMES } from '../utils/alertOutcomes.js';
 import { useConfirm } from '../context/ConfirmContext.jsx';
@@ -21,6 +28,7 @@ export default function AlertsPage() {
   const [search, setSearch] = useState(null); // { item } on success, { error } on failure
   const [isSearching, setIsSearching] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   // A deletion made here, or on the detail page (passed via navigation state).
   const location = useLocation();
   const confirm = useConfirm();
@@ -68,6 +76,22 @@ export default function AlertsPage() {
       setDeleteOutcome(ALERT_OUTCOMES.failed(toFriendlyMessage(err)));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  // Deletes every saved alert (active and resolved), then clears the list and the search result.
+  async function handleDeleteAll() {
+    setIsDeletingAll(true);
+    setDeleteOutcome(null);
+    try {
+      const deletedCount = await deleteAllAlerts();
+      setAlerts([]);
+      setSearch(null);
+      setDeleteOutcome(ALERT_OUTCOMES.allDeleted(deletedCount));
+    } catch (err) {
+      setDeleteOutcome(ALERT_OUTCOMES.failed(toFriendlyMessage(err)));
+    } finally {
+      setIsDeletingAll(false);
     }
   }
 
@@ -123,6 +147,16 @@ export default function AlertsPage() {
         <button type="button" className="btn btn-primary btn-sm" onClick={handleEmailReport} disabled={!hasAlerts || isEmailing}>
           {isEmailing ? 'Sending…' : 'Email report'}
         </button>
+        {hasAlerts && (
+          <DeleteButton
+            label="Delete all alerts"
+            busyLabel="Deleting…"
+            confirmTitle="Delete all alerts?"
+            confirmText="All of your saved alerts, including resolved ones, and their history will be permanently deleted."
+            onConfirm={handleDeleteAll}
+            isBusy={isDeletingAll}
+          />
+        )}
       </div>
       <OutcomeNotice title="Email report" outcome={emailOutcome} />
       <OutcomeNotice title="Delete alert" outcome={deleteOutcome} />

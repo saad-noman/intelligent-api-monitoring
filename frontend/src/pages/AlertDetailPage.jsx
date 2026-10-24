@@ -9,6 +9,7 @@ import {
   deleteAlert,
   emailSingleAlert,
   getAlertById,
+  reanalyzeAlert,
   updateAlertStatus,
 } from '../services/alertsService.js';
 import { toFriendlyMessage } from '../utils/errorMessages.js';
@@ -86,6 +87,14 @@ export default function AlertDetailPage() {
     });
   }
 
+  function handleAnalyze() {
+    runAction(ALERT_ACTIONS.analyze, async () => {
+      const updated = await reanalyzeAlert(alert.alertId);
+      setAlert(updated);
+      return ALERT_OUTCOMES.analyzed(updated);
+    });
+  }
+
   function handleEmail() {
     runAction(ALERT_ACTIONS.email, () => emailSingleAlert(alert.alertId));
   }
@@ -135,6 +144,7 @@ export default function AlertDetailPage() {
               alert={alert}
               busyAction={busyAction}
               onToggleStatus={handleToggleStatus}
+              onAnalyze={handleAnalyze}
               onEmail={handleEmail}
               onCopyId={handleCopyId}
               onDelete={handleDelete}

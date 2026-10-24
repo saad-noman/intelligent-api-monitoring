@@ -19,6 +19,7 @@ export default function RegisterPage() {
       </PageHeader>
       <AuthForm
         submitLabel="Create account →"
+        withNames
         onSubmit={handleRegister}
         footer={
           <>

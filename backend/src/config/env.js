@@ -12,15 +12,64 @@ const DEFAULT_SESSION_TTL_HOURS = 168; // 7 days
 // Monitoring defaults. The assignment does not fix a latency threshold, so 3000 ms is a
 // documented default; status codes at or above FAILED_STATUS_MIN count as failed requests.
 const DEFAULT_HIGH_RESPONSE_TIME_MS = 3000;
+// Learned latency baseline per API (see utils/latencyThreshold.js for the sources):
+// - outlier rule: median + 2.5 x MAD (Leys et al., 2013, Journal of Experimental Social Psychology);
+// - 1 s / 10 s user-perception limits (Nielsen Norman Group, "Response Times: The 3 Important Limits");
+// - minimum sample size and window are operational choices, not research values.
+const DEFAULT_LATENCY_MAD_MULTIPLIER = 2.5;
+const DEFAULT_LATENCY_FLOW_LIMIT_MS = 1000;
+const DEFAULT_LATENCY_ATTENTION_LIMIT_MS = 10000;
+const DEFAULT_LATENCY_BASELINE_MIN_SAMPLES = 20;
+const DEFAULT_LATENCY_BASELINE_WINDOW = 200;
 const DEFAULT_FAILED_STATUS_MIN = 400;
 const DEFAULT_MAX_BATCH_SIZE = 100;
 
 const DEFAULT_LLM_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_LLM_MODEL = 'openai/gpt-oss-20b';
-const DEFAULT_LLM_TIMEOUT_MS = 15000;
-const DEFAULT_LLM_MAX_TOKENS = 1200;
+// Each call carries search results and the model reasons before answering, so it needs
+// more time and tokens than a single short completion.
+const DEFAULT_LLM_TIMEOUT_MS = 45000;
+const DEFAULT_LLM_MAX_TOKENS = 4000;
 const DEFAULT_LLM_RETRIES = 1;
 const DEFAULT_LLM_RETRY_DELAY_MS = 1500;
+const DEFAULT_LLM_REPAIR_ATTEMPTS = 2;
+const LLM_REASONING_EFFORTS = ['low', 'medium', 'high'];
+const DEFAULT_LLM_REASONING_EFFORT = 'medium';
+
+// Web research defaults: Stack Exchange needs no key; Google results need SERPER_API_KEY.
+// Only links on these domains (or their subdomains) are ever shown to the model or the user.
+const DEFAULT_RESEARCH_STACKEXCHANGE_SITES = 'stackoverflow,serverfault';
+const DEFAULT_RESEARCH_ALLOWED_DOMAINS = [
+  'stackoverflow.com',
+  'serverfault.com',
+  'superuser.com',
+  'stackexchange.com',
+  'developer.mozilla.org',
+  'learn.microsoft.com',
+  'cloud.google.com',
+  'docs.aws.amazon.com',
+].join(',');
+// Latency-threshold research (Google via Serper only): sources that publish response-time
+// guidance — UX research, web performance, SRE, and cloud-provider documentation.
+const DEFAULT_THRESHOLD_RESEARCH_DOMAINS = [
+  'nngroup.com',
+  'web.dev',
+  'developers.google.com',
+  'sre.google',
+  'cloud.google.com',
+  'docs.aws.amazon.com',
+  'aws.amazon.com',
+  'learn.microsoft.com',
+  'developer.mozilla.org',
+].join(',');
+// Sanity bounds for a researched threshold (a value outside them is rejected, not clamped).
+const DEFAULT_THRESHOLD_MIN_MS = 50;
+const DEFAULT_THRESHOLD_MAX_MS = 60000;
+const DEFAULT_RESEARCH_MAX_SEARCHES = 2;
+const DEFAULT_RESEARCH_MAX_RESULTS = 4;
+const DEFAULT_RESEARCH_TIMEOUT_MS = 8000;
+const DEFAULT_RESEARCH_CACHE_TTL_MINUTES = 60;
+const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
 const DEFAULT_SMTP_PORT = 587;
 
@@ -40,6 +89,16 @@ function parseInteger(name, value, defaultValue, { min = 1, max = Number.MAX_SAF
   const number = Number(value);
   if (!Number.isInteger(number) || number < min || number > max) {
     throw new ConfigError(`${name} must be an integer between ${min} and ${max}.`);
+  }
+  return number;
+}
+
+// Reads an optional decimal number variable, falling back to `defaultValue` when unset.
+function parseNumber(name, value, defaultValue, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  if (value === undefined || value.trim() === '') return defaultValue;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < min || number > max) {
+    throw new ConfigError(`${name} must be a number between ${min} and ${max}.`);
   }
   return number;
 }
@@ -104,6 +163,32 @@ function parseResponseSchemas(filePath) {
   }
 }
 
+// Settings for the learned, per-API latency threshold.
+function loadLatencyConfig(env) {
+  return Object.freeze({
+    madMultiplier: parseNumber('LATENCY_MAD_MULTIPLIER', env.LATENCY_MAD_MULTIPLIER, DEFAULT_LATENCY_MAD_MULTIPLIER, {
+      min: 1,
+      max: 10,
+    }),
+    flowLimitMs: parseInteger('LATENCY_FLOW_LIMIT_MS', env.LATENCY_FLOW_LIMIT_MS, DEFAULT_LATENCY_FLOW_LIMIT_MS),
+    attentionLimitMs: parseInteger(
+      'LATENCY_ATTENTION_LIMIT_MS',
+      env.LATENCY_ATTENTION_LIMIT_MS,
+      DEFAULT_LATENCY_ATTENTION_LIMIT_MS,
+    ),
+    baselineMinSamples: parseInteger(
+      'LATENCY_BASELINE_MIN_SAMPLES',
+      env.LATENCY_BASELINE_MIN_SAMPLES,
+      DEFAULT_LATENCY_BASELINE_MIN_SAMPLES,
+      { min: 5 },
+    ),
+    baselineWindow: parseInteger('LATENCY_BASELINE_WINDOW', env.LATENCY_BASELINE_WINDOW, DEFAULT_LATENCY_BASELINE_WINDOW, {
+      min: 5,
+      max: 5000,
+    }),
+  });
+}
+
 function loadMonitoringConfig(env) {
   return Object.freeze({
     highResponseTimeMs: parseInteger('HIGH_RESPONSE_TIME_MS', env.HIGH_RESPONSE_TIME_MS, DEFAULT_HIGH_RESPONSE_TIME_MS),
@@ -112,6 +197,7 @@ function loadMonitoringConfig(env) {
       max: 599,
     }),
     maxBatchSize: parseInteger('MAX_BATCH_SIZE', env.MAX_BATCH_SIZE, DEFAULT_MAX_BATCH_SIZE),
+    latency: loadLatencyConfig(env),
     responseSchemas: Object.freeze(parseResponseSchemas(parseOptionalString(env.RESPONSE_SCHEMAS_FILE))),
   });
 }
@@ -122,10 +208,21 @@ function parseModelList(primary, fallbacks) {
   return [...new Set(models)];
 }
 
-// A missing API key is allowed: alerts then use the deterministic fallback template.
+function parseReasoningEffort(value) {
+  const effort = parseOptionalString(value)?.toLowerCase() ?? DEFAULT_LLM_REASONING_EFFORT;
+  if (!LLM_REASONING_EFFORTS.includes(effort)) {
+    throw new ConfigError(`LLM_REASONING_EFFORT must be one of: ${LLM_REASONING_EFFORTS.join(', ')}.`);
+  }
+  return effort;
+}
+
+// The API key is required: every alert is written by the AI analysis.
 function loadLlmConfig(env) {
+  const apiKey = parseOptionalString(env.OPENROUTER_API_KEY);
+  if (!apiKey) throw new ConfigError('OPENROUTER_API_KEY is required: alerts are written by the AI analysis.');
+
   return Object.freeze({
-    apiKey: parseOptionalString(env.OPENROUTER_API_KEY),
+    apiKey,
     baseUrl: (parseOptionalString(env.OPENROUTER_BASE_URL) ?? DEFAULT_LLM_BASE_URL).replace(/\/+$/, ''),
     // Tried in order until one returns a valid analysis.
     models: Object.freeze(parseModelList(env.OPENROUTER_MODEL, env.OPENROUTER_FALLBACK_MODELS)),
@@ -134,6 +231,57 @@ function loadLlmConfig(env) {
     // Extra attempts per model after a temporary error (rate limit, timeout, provider 5xx).
     retries: parseInteger('LLM_RETRIES', env.LLM_RETRIES, DEFAULT_LLM_RETRIES, { min: 0, max: 5 }),
     retryDelayMs: parseInteger('LLM_RETRY_DELAY_MS', env.LLM_RETRY_DELAY_MS, DEFAULT_LLM_RETRY_DELAY_MS, { min: 0 }),
+    // Times a model is asked to correct an answer that failed a guardrail.
+    repairAttempts: parseInteger('LLM_REPAIR_ATTEMPTS', env.LLM_REPAIR_ATTEMPTS, DEFAULT_LLM_REPAIR_ATTEMPTS, {
+      min: 0,
+      max: 5,
+    }),
+    reasoningEffort: parseReasoningEffort(env.LLM_REASONING_EFFORT),
+  });
+}
+
+// "Stackoverflow.com, docs.aws.amazon.com" -> ["stackoverflow.com", "docs.aws.amazon.com"]
+function parseDomains(name, value) {
+  const domains = parseCommaList(value).map((domain) => domain.toLowerCase());
+  if (domains.length === 0 || !domains.every((domain) => DOMAIN_PATTERN.test(domain))) {
+    throw new ConfigError(`${name} must be a comma-separated list of domains such as stackoverflow.com.`);
+  }
+  return domains;
+}
+
+// Research is on by default (Stack Exchange needs no key); RESEARCH_ENABLED=false turns it off.
+function loadResearchConfig(env) {
+  return Object.freeze({
+    enabled: env.RESEARCH_ENABLED?.trim() !== 'false',
+    stackExchange: Object.freeze({
+      sites: Object.freeze(parseCommaList(env.STACKEXCHANGE_SITES ?? DEFAULT_RESEARCH_STACKEXCHANGE_SITES)),
+      apiKey: parseOptionalString(env.STACKEXCHANGE_API_KEY),
+    }),
+    serperApiKey: parseOptionalString(env.SERPER_API_KEY),
+    allowedDomains: Object.freeze(
+      parseDomains('RESEARCH_ALLOWED_DOMAINS', env.RESEARCH_ALLOWED_DOMAINS ?? DEFAULT_RESEARCH_ALLOWED_DOMAINS),
+    ),
+    // Tool calls the model may make per analysis, and results returned per call.
+    maxSearches: parseInteger('RESEARCH_MAX_SEARCHES', env.RESEARCH_MAX_SEARCHES, DEFAULT_RESEARCH_MAX_SEARCHES, { max: 5 }),
+    maxResults: parseInteger('RESEARCH_MAX_RESULTS', env.RESEARCH_MAX_RESULTS, DEFAULT_RESEARCH_MAX_RESULTS, { max: 10 }),
+    timeoutMs: parseInteger('RESEARCH_TIMEOUT_MS', env.RESEARCH_TIMEOUT_MS, DEFAULT_RESEARCH_TIMEOUT_MS),
+    cacheTtlMs:
+      parseInteger('RESEARCH_CACHE_TTL_MINUTES', env.RESEARCH_CACHE_TTL_MINUTES, DEFAULT_RESEARCH_CACHE_TTL_MINUTES) *
+      60 * 1000,
+    threshold: loadThresholdResearchConfig(env),
+  });
+}
+
+// The AI looks up a response-time threshold on Google (needs SERPER_API_KEY);
+// THRESHOLD_RESEARCH_ENABLED=false turns it off and the learned/SLO threshold is used.
+function loadThresholdResearchConfig(env) {
+  return Object.freeze({
+    enabled: env.THRESHOLD_RESEARCH_ENABLED?.trim() !== 'false',
+    allowedDomains: Object.freeze(
+      parseDomains('THRESHOLD_RESEARCH_DOMAINS', env.THRESHOLD_RESEARCH_DOMAINS ?? DEFAULT_THRESHOLD_RESEARCH_DOMAINS),
+    ),
+    minMs: parseInteger('THRESHOLD_MIN_MS', env.THRESHOLD_MIN_MS, DEFAULT_THRESHOLD_MIN_MS),
+    maxMs: parseInteger('THRESHOLD_MAX_MS', env.THRESHOLD_MAX_MS, DEFAULT_THRESHOLD_MAX_MS),
   });
 }
 
@@ -184,6 +332,7 @@ export function loadConfig() {
     dnsServers: Object.freeze(parseDnsServers(process.env.DNS_SERVERS)),
     monitoring: loadMonitoringConfig(process.env),
     llm: loadLlmConfig(process.env),
+    research: loadResearchConfig(process.env),
     email: loadEmailConfig(process.env),
   });
   return loadedConfig;

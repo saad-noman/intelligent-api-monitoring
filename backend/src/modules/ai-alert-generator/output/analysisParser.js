@@ -5,11 +5,13 @@ import { GuardrailError } from '../guardrails/index.js';
 export function parseAnalysis(text) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new GuardrailError('no_json_in_output');
+  if (start === -1 || end <= start) {
+    throw new GuardrailError('no_json_in_output', 'The reply contained no JSON object. Reply with one JSON object only.');
+  }
 
   try {
     return JSON.parse(text.slice(start, end + 1));
   } catch {
-    throw new GuardrailError('invalid_json_in_output');
+    throw new GuardrailError('invalid_json_in_output', 'The JSON object could not be parsed. Reply with valid JSON only.');
   }
 }
