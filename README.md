@@ -11,7 +11,7 @@ Accepts monitoring **observations** about external APIs, detects anomalies with 
 npm install                      # root (concurrently)
 cd backend && npm install        # configure environment variables
 cd ../frontend && npm install    # configure environment variables
-cd .. && npm run dev             # starts backend (5000) and frontend (5173)
+cd .. && npm run dev             # starts backend and frontend
 ```
 
 Backend tests: `cd backend && npm test`
